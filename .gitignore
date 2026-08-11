@@ -34,6 +34,7 @@ htmlcov/
 data/raw/*
 data/processed/*
 data/annotations/*
+data/samples/*
 
 # Models
 models/*
@@ -42,3 +43,6 @@ models/*
 # Logs
 *.log
 logs/
+
+# Python packaging
+*.egg-info/

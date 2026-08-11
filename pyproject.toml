@@ -1,14 +1,27 @@
 [project]
 name = "ats-cv-scorer-v2"
 version = "0.1.0"
-description = "Add your description here"
+description = "CV parsing and ATS scoring application"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.12"
 dependencies = [
     "fastapi>=0.141.1",
     "httpx>=0.28.1",
     "pydantic-settings>=2.15.0",
+    "pymupdf>=1.28.2",
     "pytest>=9.1.1",
+    "python-docx>=1.2.0",
     "python-multipart>=0.0.32",
     "uvicorn[standard]>=0.52.1",
 ]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
