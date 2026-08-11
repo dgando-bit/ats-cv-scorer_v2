@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environment
+.venv/
+
+# Environment variables
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ML
+*.pt
+*.pth
+*.bin
+*.safetensors
+
+# Data
+data/raw/*
+data/processed/*
+data/annotations/*
+
+# Models
+models/*
+!models/.gitkeep
+
+# Logs
+*.log
+logs/
