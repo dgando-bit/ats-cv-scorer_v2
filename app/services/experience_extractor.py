@@ -1,16 +1,7 @@
 import re
-from dataclasses import dataclass
 
+from app.models.cv import Experience
 from app.services.layout_extractor import TextBlock
-
-
-@dataclass
-class Experience:
-    company: str | None
-    role: str | None
-    start_date: str | None
-    end_date: str | None
-    description: list[str]
 
 
 class ExperienceExtractor:
@@ -20,19 +11,13 @@ class ExperienceExtractor:
         re.IGNORECASE,
     )
 
-    KNOWN_ROLES = [
-        "IA & Machine Learning Engineer",
-        "Développeur Back-end",
-        "Développeur Informatique",
-        "Responsable Informatique",
-    ]
-
     def extract(
         self,
         blocks: list[TextBlock],
     ) -> list[Experience]:
 
         experiences = []
+
         current_blocks = []
 
         for block in blocks:
@@ -105,19 +90,21 @@ class ExperienceExtractor:
             description=description,
         )
 
-    @classmethod
+    @staticmethod
     def _extract_role_company(
-        cls,
         header: str,
     ) -> tuple[str | None, str | None]:
 
         header = header.strip()
 
-        # ---------------------------------------------------------
-        # Cas 1 :
-        # "IA & Machine Learning Engineer Liora"
-        # ---------------------------------------------------------
-        for role in cls.KNOWN_ROLES:
+        known_roles = [
+            "IA & Machine Learning Engineer",
+            "Développeur Back-end",
+            "Développeur Informatique",
+            "Responsable Informatique",
+        ]
+
+        for role in known_roles:
 
             if header.startswith(role):
 
@@ -125,36 +112,4 @@ class ExperienceExtractor:
 
                 return role, company
 
-        # ---------------------------------------------------------
-        # Cas 2 :
-        # "Liora IA & Machine Learning Engineer"
-        # ---------------------------------------------------------
-        for role in cls.KNOWN_ROLES:
-
-            if header.endswith(role):
-
-                company = header[:-len(role)].strip()
-
-                return role, company
-
-        # ---------------------------------------------------------
-        # Cas 3 :
-        # Le rôle est au milieu du header
-        #
-        # "Liora - IA & Machine Learning Engineer"
-        # ---------------------------------------------------------
-        for role in cls.KNOWN_ROLES:
-
-            if role in header:
-
-                company = header.replace(role, "").strip()
-
-                # Nettoyage des séparateurs éventuels
-                company = company.strip(" -|,:;")
-
-                return role, company
-
-        # ---------------------------------------------------------
-        # Aucun rôle reconnu
-        # ---------------------------------------------------------
         return None, header

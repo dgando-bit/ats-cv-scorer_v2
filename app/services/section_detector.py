@@ -1,104 +1,3 @@
-# import re
-#
-#
-# class SectionDetector:
-#     """Detect CV sections based on their headings."""
-#
-#     SECTION_PATTERNS = {
-#         "profile": [
-#             r"^profil$",
-#             r"^à propos$",
-#             r"^résumé$",
-#             r"^about$",
-#         ],
-#         "experience": [
-#             r"^expériences?$",
-#             r"^expérience professionnelle$",
-#             r"^expériences professionnelles$",
-#             r"^professional experience$",
-#             r"^work experience$",
-#         ],
-#         "education": [
-#             r"^formation$",
-#             r"^formations$",
-#             r"^education$",
-#             r"^academic background$",
-#         ],
-#         "skills": [
-#             r"^compétences$",
-#             r"^compétences clés$",
-#             r"^skills$",
-#             r"^technical skills$",
-#         ],
-#         "languages": [
-#             r"^langues?$",
-#             r"^languages?$",
-#         ],
-#         "contact": [
-#             r"^contact$",
-#             r"^coordonnées$",
-#         ],
-#         "projects": [
-#             r"^projets?$",
-#             r"^projets académiques?$",
-#             r"^academic projects?$",
-#         ],
-#         "certifications": [
-#             r"^certifications?$",
-#             r"^certificats?$",
-#         ],
-#     }
-#
-#     def detect(self, text: str) -> dict[str, str]:
-#         sections = {}
-#         current_section = None
-#         current_lines = []
-#
-#         for line in text.splitlines():
-#             line = line.strip()
-#
-#             if not line:
-#                 continue
-#
-#             section = self._match_section(line)
-#
-#             if section:
-#                 if current_section:
-#                     sections[current_section] = "\n".join(
-#                         current_lines
-#                     ).strip()
-#
-#                 current_section = section
-#                 current_lines = []
-#                 continue
-#
-#             if current_section:
-#                 current_lines.append(line)
-#
-#         if current_section:
-#             sections[current_section] = "\n".join(
-#                 current_lines
-#             ).strip()
-#
-#         return sections
-#
-#     def _match_section(self, line: str) -> str | None:
-#         normalized = self._normalize(line)
-#
-#         for section, patterns in self.SECTION_PATTERNS.items():
-#             for pattern in patterns:
-#                 if re.fullmatch(pattern, normalized, re.IGNORECASE):
-#                     return section
-#
-#         return None
-#
-#     @staticmethod
-#     def _normalize(text: str) -> str:
-#         text = text.strip()
-#         text = re.sub(r"\s+", " ", text)
-#
-#         return text
-
 from dataclasses import dataclass
 
 from app.services.layout_extractor import TextBlock
@@ -169,14 +68,45 @@ class SectionDetector:
         blocks: list[TextBlock],
     ) -> list[DetectedSection]:
 
+        if not blocks:
+            return []
+
+        # Pour l'instant, on traite chaque colonne séparément.
+        columns = self._split_columns(blocks)
+
         sections: list[DetectedSection] = []
 
-        current_section = None
+        for column_blocks in columns:
+
+            column_sections = self._detect_column(
+                column_blocks
+            )
+
+            sections.extend(column_sections)
+
+        return sections
+
+    def _detect_column(
+        self,
+        blocks: list[TextBlock],
+    ) -> list[DetectedSection]:
+
+        sections: list[DetectedSection] = []
+
+        current_section: str | None = None
         current_blocks: list[TextBlock] = []
+
+        # Lecture verticale dans la colonne
+        blocks = sorted(
+            blocks,
+            key=lambda block: block.y0,
+        )
 
         for block in blocks:
 
-            section_name = self._match_section(block.text)
+            section_name = self._match_section(
+                block.text
+            )
 
             if section_name:
 
@@ -206,7 +136,31 @@ class SectionDetector:
 
         return sections
 
-    def _match_section(self, text: str) -> str | None:
+    @staticmethod
+    def _split_columns(
+        blocks: list[TextBlock],
+    ) -> list[list[TextBlock]]:
+
+        left_column = []
+        right_column = []
+
+        for block in blocks:
+
+            # Ton PDF utilise environ x=220 comme séparation.
+            if block.x0 < 180:
+                left_column.append(block)
+            else:
+                right_column.append(block)
+
+        return [
+            left_column,
+            right_column,
+        ]
+
+    def _match_section(
+        self,
+        text: str,
+    ) -> str | None:
 
         normalized = self._normalize(text)
 
