@@ -26,32 +26,29 @@ class LayoutExtractor:
     """Extract PDF text blocks while preserving their spatial coordinates."""
 
     def extract(self, file_path: str) -> list[TextBlock]:
-        document = pymupdf.open(file_path)
-
         blocks: list[TextBlock] = []
 
-        for page_number, page in enumerate(document, start=1):
-            for block in page.get_text("blocks"):
-                x0, y0, x1, y1, text, *_ = block
+        with pymupdf.open(file_path) as document:
+            for page_number, page in enumerate(document, start=1):
+                for block in page.get_text("blocks"):
+                    x0, y0, x1, y1, text, *_ = block
 
-                text = self._clean_text(text)
+                    text = self._clean_text(text)
 
-                if not text:
-                    continue
+                    if not text:
+                        continue
 
-                blocks.append(
-                    TextBlock(
-                        page=page_number,
-                        page_width=page.rect.width,
-                        x0=x0,
-                        y0=y0,
-                        x1=x1,
-                        y1=y1,
-                        text=text,
+                    blocks.append(
+                        TextBlock(
+                            page=page_number,
+                            page_width=page.rect.width,
+                            x0=x0,
+                            y0=y0,
+                            x1=x1,
+                            y1=y1,
+                            text=text,
+                        )
                     )
-                )
-
-        document.close()
 
         return blocks
 

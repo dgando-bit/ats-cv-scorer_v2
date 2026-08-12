@@ -14,11 +14,6 @@ class EducationExtractor:
         r"\b((?:19|20)\d{2})\b"
     )
 
-    # Un début de formation est identifié par une année en début de texte
-    EDUCATION_START_PATTERN = re.compile(
-        r"(?<!\d)\b(?:19|20)\d{2}(?:\s*[-–—]\s*(?:19|20)\d{2})?\s*[:\-]?"
-    )
-
     def extract(
         self,
         blocks: list[TextBlock],
@@ -27,90 +22,230 @@ class EducationExtractor:
         if not blocks:
             return []
 
-        # ---------------------------------------------------------
-        # 1. Concaténer les blocs
-        # ---------------------------------------------------------
-        #
-        # Un TextBlock peut contenir plusieurs formations.
-        #
-        # Exemple réel :
-        #
-        # Mines Paris...
-        # 2018 : « Concepteur-Développeur...
-        #
-        # On conserve un espace entre les blocs pour éviter de
-        # coller artificiellement les mots.
-        # ---------------------------------------------------------
+        # On conserve les lignes du PDF.
+        lines: list[str] = []
 
-        text = " ".join(
-            block.text.strip()
-            for block in blocks
-            if block.text.strip()
-        )
+        for block in blocks:
+            for line in block.text.splitlines():
+                line = line.strip()
 
-        text = self._normalize_text(text)
-
-        # ---------------------------------------------------------
-        # 2. Découper le texte à chaque nouvelle année
-        # ---------------------------------------------------------
-
-        matches = list(
-            self.EDUCATION_START_PATTERN.finditer(text)
-        )
-
-        if not matches:
-            return []
+                if line:
+                    lines.append(line)
 
         educations: list[Education] = []
 
-        for index, match in enumerate(matches):
+        i = 0
 
-            start = match.start()
+        while i < len(lines):
 
-            if index + 1 < len(matches):
-                end = matches[index + 1].start()
-            else:
-                end = len(text)
+            line = lines[i]
 
-            segment = text[start:end].strip()
+            # Une formation commence par une année.
+            if not self._extract_year(line):
+                i += 1
+                continue
 
-            education = self._parse_segment(segment)
+            year = self._extract_year(line)
 
-            if education:
-                educations.append(education)
+            # Collecte toutes les lignes jusqu'à la prochaine année.
+            education_lines = [line]
+            i += 1
+
+            while i < len(lines):
+
+                next_line = lines[i]
+
+                if self._extract_year(next_line):
+                    break
+
+                education_lines.append(next_line)
+                i += 1
+
+            degree, institution = self._parse_education(
+                education_lines
+            )
+
+            educations.append(
+                Education(
+                    institution=institution,
+                    degree=degree,
+                    year=year,
+                )
+            )
 
         return educations
 
-    # ---------------------------------------------------------
-    # Parsing d'une formation
-    # ---------------------------------------------------------
-
-    def _parse_segment(
+    def _parse_education(
         self,
+        lines: list[str],
+    ) -> tuple[str, str | None]:
+
+        text = " ".join(lines)
+
+        # ---------------------------------------------------------
+        # 1. Extraire le diplôme entre « »
+        # ---------------------------------------------------------
+
+        quoted_match = re.search(
+            r"«\s*(.*?)\s*»",
+            text,
+        )
+
+        if quoted_match:
+
+            quoted_degree = quoted_match.group(1).strip()
+
+            # Cas normal :
+            #
+            # 2025-2026 : « Expert en Ingénierie de l’IA »
+            #
+            # => Expert en Ingénierie de l’IA
+            #
+            # Mais pour :
+            #
+            # 2001: BTS « Informatique Industrielle »
+            #
+            # => BTS « Informatique Industrielle »
+            before_quote = text[:quoted_match.start()].strip()
+
+            if re.search(
+                r"\bBTS\b",
+                before_quote,
+                flags=re.IGNORECASE,
+            ):
+                degree = (
+                    before_quote
+                    + " "
+                    + text[
+                        quoted_match.start():
+                        quoted_match.end()
+                    ]
+                ).strip()
+
+            else:
+                degree = quoted_degree
+
+        else:
+            degree = text
+
+        # ---------------------------------------------------------
+        # 2. Nettoyer l'année
+        # ---------------------------------------------------------
+
+        degree = self.YEAR_RANGE_PATTERN.sub("", degree)
+        degree = self.YEAR_PATTERN.sub("", degree)
+
+        degree = re.sub(
+            r"^\s*:\s*",
+            "",
+            degree,
+        )
+
+        # ---------------------------------------------------------
+        # 3. Supprimer les informations de niveau
+        # ---------------------------------------------------------
+
+        degree = re.sub(
+            r"\s*[–—-]\s*Niveau\s+\d+.*$",
+            "",
+            degree,
+            flags=re.IGNORECASE,
+        )
+
+        degree = degree.strip()
+
+        # ---------------------------------------------------------
+        # 4. Trouver l'établissement
+        # ---------------------------------------------------------
+
+        institution = self._extract_institution(
+            lines,
+            text,
+            degree,
+        )
+
+        return degree, institution
+
+    def _extract_institution(
+        self,
+        lines: list[str],
         text: str,
-    ) -> Education | None:
+        degree: str,
+    ) -> str | None:
 
-        year = self._extract_year(text)
+        # L'établissement apparaît généralement après
+        # les informations concernant le diplôme.
 
-        if not year:
-            return None
-
-        # Supprimer l'année et les deux-points
-        content = self._remove_year(text).strip()
-
-        degree, institution = self._split_degree_institution(
-            content
+        # On cherche la fin du diplôme / niveau.
+        level_match = re.search(
+            r"\(BAC\+\d+(?:/\d+)?\)",
+            text,
+            flags=re.IGNORECASE,
         )
 
-        return Education(
-            institution=institution,
-            degree=degree,
-            year=year,
+        if level_match:
+            institution = text[level_match.end():].strip()
+
+            if institution:
+                return self._clean_institution(institution)
+
+        # Cas BTS sans niveau :
+        #
+        # 2001: BTS « Informatique Industrielle »
+        # Lycée ORT Montreuil 93
+
+        quoted_match = re.search(
+            r"«\s*.*?\s*»",
+            text,
         )
 
-    # ---------------------------------------------------------
-    # Extraction année
-    # ---------------------------------------------------------
+        if quoted_match:
+            institution = text[quoted_match.end():].strip()
+
+            # Si le texte restant contient le début du diplôme,
+            # on essaie de le supprimer.
+            institution = re.sub(
+                r"^.*?\)\s*",
+                "",
+                institution,
+            ).strip()
+
+            if institution:
+                return self._clean_institution(institution)
+
+        # Fallback : chercher une ligne qui ne ressemble
+        # pas au diplôme.
+        if len(lines) >= 2:
+            candidate = lines[-1]
+
+            if not self._looks_like_degree(candidate):
+                return self._clean_institution(candidate)
+
+        return None
+
+    @staticmethod
+    def _looks_like_degree(text: str) -> bool:
+        return bool(
+            re.search(
+                r"niveau\s+\d+|BAC\+\d+|BTS|licence|master|ingénieur",
+                text,
+                flags=re.IGNORECASE,
+            )
+        )
+
+    @staticmethod
+    def _clean_institution(text: str) -> str:
+
+        text = text.strip()
+
+        # Supprime ponctuation finale.
+        text = re.sub(
+            r"[.,;]+$",
+            "",
+            text,
+        )
+
+        return text.strip()
 
     def _extract_year(
         self,
@@ -131,199 +266,3 @@ class EducationExtractor:
             return year_match.group(1)
 
         return None
-
-    # ---------------------------------------------------------
-    # Suppression année
-    # ---------------------------------------------------------
-
-    def _remove_year(
-        self,
-        text: str,
-    ) -> str:
-
-        text = self.YEAR_RANGE_PATTERN.sub(
-            "",
-            text,
-            count=1,
-        )
-
-        text = self.YEAR_PATTERN.sub(
-            "",
-            text,
-            count=1,
-        )
-
-        return (
-            text
-            .replace(":", " ")
-            .strip()
-        )
-
-    # ---------------------------------------------------------
-    # Séparation diplôme / établissement
-    # ---------------------------------------------------------
-
-    def _split_degree_institution(
-        self,
-        text: str,
-    ) -> tuple[str, str | None]:
-
-        text = self._normalize_text(text)
-
-        # -----------------------------------------------------
-        # Cas avec des guillemets :
-        #
-        # « Expert en Ingénierie de l’IA » – Niveau 7 (BAC+5)
-        # Mines Paris – PSL Executive Education
-        #
-        # ou :
-        #
-        # BTS « Informatique Industrielle »
-        # Lycée ORT Montreuil 93
-        # -----------------------------------------------------
-
-        quote_match = re.search(
-            r"«\s*(.*?)\s*»",
-            text,
-        )
-
-        if quote_match:
-
-            quoted_degree = quote_match.group(1).strip()
-
-            # Texte avant les guillemets
-            prefix = text[:quote_match.start()].strip()
-
-            # Texte après les guillemets
-            suffix = text[quote_match.end():].strip()
-
-            # ---------------------------------------------
-            # Cas BTS :
-            #
-            # BTS « Informatique Industrielle »
-            #
-            # Le BTS fait partie du diplôme.
-            # ---------------------------------------------
-
-            if re.search(
-                r"\bBTS\b",
-                prefix,
-                flags=re.IGNORECASE,
-            ):
-                degree = (
-                    f"{prefix} « {quoted_degree} »"
-                ).strip()
-            else:
-                degree = quoted_degree
-
-            # ---------------------------------------------
-            # Supprimer les informations de niveau
-            #
-            # – Niveau 7 (BAC+5)
-            # – Niveau 6 (BAC+3/4)
-            # ---------------------------------------------
-
-            suffix = re.sub(
-                r"^\s*[–-]\s*Niveau\s+\d+"
-                r"(?:\s*\([^)]*\))?",
-                "",
-                suffix,
-                flags=re.IGNORECASE,
-            ).strip()
-
-            # Supprimer éventuellement :
-            # (BAC+5), (BAC+3/4)
-            suffix = re.sub(
-                r"^\s*\([^)]*\)",
-                "",
-                suffix,
-            ).strip()
-
-            institution = self._clean_institution(suffix)
-
-            return degree, institution
-
-        # -----------------------------------------------------
-        # Fallback sans guillemets
-        # -----------------------------------------------------
-
-        # Exemple :
-        # Diplôme – Niveau 7 (BAC+5) Institution
-        level_match = re.search(
-            r"\s*[–-]\s*Niveau\s+\d+"
-            r"(?:\s*\([^)]*\))?",
-            text,
-            flags=re.IGNORECASE,
-        )
-
-        if level_match:
-
-            degree = text[:level_match.start()].strip()
-            institution = text[level_match.end():].strip()
-
-            return (
-                self._clean_degree(degree),
-                self._clean_institution(institution),
-            )
-
-        # -----------------------------------------------------
-        # Aucun séparateur identifiable.
-        #
-        # On garde tout comme diplôme.
-        # -----------------------------------------------------
-
-        return (
-            self._clean_degree(text),
-            None,
-        )
-
-    # ---------------------------------------------------------
-    # Nettoyage diplôme
-    # ---------------------------------------------------------
-
-    @staticmethod
-    def _clean_degree(text: str) -> str:
-
-        return (
-            text
-            .strip()
-            .rstrip(".")
-            .strip()
-        )
-
-    # ---------------------------------------------------------
-    # Nettoyage établissement
-    # ---------------------------------------------------------
-
-    @staticmethod
-    def _clean_institution(
-        text: str,
-    ) -> str | None:
-
-        text = text.strip()
-
-        if not text:
-            return None
-
-        # Supprimer les espaces multiples
-        text = re.sub(r"\s+", " ", text)
-
-        # Supprimer la ponctuation finale
-        text = text.rstrip(" .")
-
-        return text or None
-
-    # ---------------------------------------------------------
-    # Normalisation
-    # ---------------------------------------------------------
-
-    @staticmethod
-    def _normalize_text(text: str) -> str:
-
-        # Les PDF contiennent souvent des retours à la ligne
-        # artificiels au milieu des phrases.
-        return re.sub(
-            r"\s+",
-            " ",
-            text,
-        ).strip()
