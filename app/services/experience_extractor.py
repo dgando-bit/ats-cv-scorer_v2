@@ -92,7 +92,7 @@ class ExperienceExtractor:
 
     @staticmethod
     def _extract_role_company(
-        header: str,
+            header: str,
     ) -> tuple[str | None, str | None]:
 
         header = header.strip()
@@ -104,11 +104,24 @@ class ExperienceExtractor:
             "Responsable Informatique",
         ]
 
+        header_lower = header.lower()
+
         for role in known_roles:
+            role_lower = role.lower()
 
-            if header.startswith(role):
+            if role_lower in header_lower:
+                index = header_lower.find(role_lower)
 
-                company = header[len(role):].strip()
+                company_before = header[:index].strip()
+                company_after = header[index + len(role):].strip()
+
+                company_parts = [
+                    part
+                    for part in [company_before, company_after]
+                    if part
+                ]
+
+                company = " ".join(company_parts)
 
                 return role, company
 
