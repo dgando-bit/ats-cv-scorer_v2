@@ -4,6 +4,7 @@ from app.services.layout_extractor import LayoutExtractor
 from app.services.section_detector import SectionDetector
 from app.services.experience_extractor import ExperienceExtractor
 from app.services.regex_extractor import RegexExtractor
+from app.services.education_extractor import EducationExtractor
 
 class CVExtractor:
 
@@ -13,6 +14,7 @@ class CVExtractor:
         self.section_detector = SectionDetector()
         self.experience_extractor = ExperienceExtractor()
         self.regex_extractor = RegexExtractor()
+        self.education_extractor = EducationExtractor()
 
     def extract(self, file_path: str) -> CV:
 
@@ -58,7 +60,17 @@ class CVExtractor:
             experience_blocks
         )
 
-        # 8. Skills
+        # 8. Education
+        education_blocks = sections.get(
+            "education",
+            []
+        )
+
+        education = self.education_extractor.extract(
+            education_blocks
+        )
+
+        # 9. Skills
         skills_text = self._blocks_to_text(
             sections.get("skills", [])
         )
@@ -67,7 +79,7 @@ class CVExtractor:
             skills_text
         )
 
-        # 9. Languages
+        # 10. Languages
         languages_text = self._blocks_to_text(
             sections.get("languages", [])
         )
@@ -82,6 +94,7 @@ class CVExtractor:
             contact=contact,
             profile=profile,
             experiences=experiences,
+            education=education,
             skills=skills,
             languages=languages,
         )
