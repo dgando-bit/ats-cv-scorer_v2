@@ -44,3 +44,33 @@ ats-cv-scorer_v2/
 ├── .python-version
 └── pyproject.toml
 ```
+
+## Pipeline
+```
+PDF / DOCX
+    │
+    ▼
+DocumentParser
+    │
+    ▼
+LayoutExtractor
+    │
+    ▼
+SectionExtractor
+    │
+    ├── PROFILE
+    ├── CONTACT
+    ├── EXPERIENCE ─────► ExperienceExtractor
+    ├── EDUCATION
+    ├── SKILLS
+    └── LANGUAGES
+             │
+             ▼
+        CV structured JSON
+             │
+             ▼
+        NER / NLP
+             │
+             ▼
+        ATS Scoring
+```
