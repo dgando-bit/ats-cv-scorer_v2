@@ -1,45 +1,45 @@
-from app.models.cv import (
-    CVProfile,
-    ExperienceItem,
-    LanguageItem,
-)
+from app.models.cv import CV, Contact, Experience
 
 
-def test_cv_profile_creation():
+def test_cv_model():
 
-    cv = CVProfile(
-        profile="Machine Learning Engineer",
+    cv = CV(
+        candidate_name="Destin GANDO",
+        title="MACHINE LEARNING ENGINEER",
+        contact=Contact(
+            email="d.gbakary@outlook.com",
+            phone="+33 6 70 50 41 98",
+            location="Thiais, France",
+        ),
+        profile="Machine Learning Engineer avec une expérience en développement back-end.",
         experiences=[
-            ExperienceItem(
-                company="Airweb - Paragon ID",
-                role="Développeur Back-end",
-                start_date="2021",
-                end_date="2025",
+            Experience(
+                company="Liora",
+                role="IA & Machine Learning Engineer",
+                start_date="2025",
+                end_date="2026",
                 description=[
-                    "Conception d'APIs REST",
-                    "Data Engineering",
+                    "Analyse de données",
+                    "Computer Vision",
+                    "MLOps",
                 ],
             )
         ],
         skills=[
             "Python",
-            "SQL",
-            "Machine Learning",
+            "Pandas",
+            "Scikit-learn",
+            "FastAPI",
+            "Docker",
         ],
         languages=[
-            LanguageItem(
-                language="Anglais",
-                level="B2",
-            )
+            "Anglais (B2)",
+            "LSF (C2)",
         ],
     )
 
-    assert cv.profile == "Machine Learning Engineer"
-
+    assert cv.candidate_name == "Destin GANDO"
+    assert cv.contact.email == "d.gbakary@outlook.com"
     assert len(cv.experiences) == 1
-    assert cv.experiences[0].company == "Airweb - Paragon ID"
-
+    assert cv.experiences[0].company == "Liora"
     assert "Python" in cv.skills
-
-    assert cv.languages[0].language == "Anglais"
-    assert cv.languages[0].level == "B2"

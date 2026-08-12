@@ -1,48 +1,32 @@
 # ATS-CV-Scorer
 ## 1.0.0
-## Structure du projet
+## Arborescence du projet
 ```
 ats-cv-scorer_v2/
 │
-├── .venv/
-│
 ├── app/
-│   ├── __init__.py
-│   │
-│   ├── api/
+│   ├── models/
 │   │   ├── __init__.py
-│   │   └── routes/
-│   │       ├── __init__.py
+│   │   └── cv.py
 │   │
-│   ├── core/
-│   │   └── __init__.py
-│   │
-│   ├── schemas/
-│   │   └── __init__.py
-│   │
-│   ├── services/
-│   │   └── __init__.py
-│   │
-│   └── utils/
-│       └── __init__.py
+│   └── services/
+│       ├── document_parser.py
+│       ├── layout_extractor.py
+│       ├── section_extractor.py
+│       └── experience_extractor.py
+│
+├── tests/
+│   ├── test_cv_models.py
+│   ├── test_document_parser.py
+│   └── test_health.py
+│
+├── scripts/
 │
 ├── data/
-│   ├── raw/
-│   ├── processed/
-│   ├── samples/
-│   └── annotations/
+│   └── samples/
 │
-├── models/
-│   └── .gitkeep
-│
-├── notebooks/
-├── scripts/
-├── tests/
-│   └── __init__.py
-│
-├── .gitignore
-├── .python-version
-└── pyproject.toml
+├── pyproject.toml
+└── uv.lock
 ```
 
 ## Pipeline
