@@ -1,8 +1,9 @@
 from pathlib import Path
 
-import fitz
+import pymupdf
 from docx import Document
 
+# from app.utils.text import clean_text
 
 class DocumentParser:
     """Extract raw text from supported document formats."""
@@ -13,7 +14,7 @@ class DocumentParser:
     def parse_pdf(file_path: str | Path) -> str:
         """Extract text from a PDF file."""
 
-        document = fitz.open(file_path)
+        document = pymupdf.open(file_path)
 
         pages = []
 
