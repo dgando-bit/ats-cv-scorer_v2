@@ -3,7 +3,6 @@ from app.services.layout_extractor import TextBlock
 
 
 def test_extract_multiple_educations():
-
     blocks = [
         TextBlock(
             page=1,
@@ -101,8 +100,8 @@ def test_extract_multiple_educations():
     assert educations[3].degree == "BTS « Informatique Industrielle »"
     assert educations[3].institution == "Lycée ORT Montreuil 93"
 
-def test_extract_education_with_multiline_blocks():
 
+def test_extract_education_with_multiline_blocks():
     blocks = [
         TextBlock(
             page=1,
@@ -152,3 +151,158 @@ def test_extract_education_with_multiline_blocks():
         "Concepteur-Développeur Informatique"
     )
     assert educations[1].institution == "M2I Formation 75"
+
+
+def test_extract_education_classic_format():
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=100,
+            x1=500,
+            y1=120,
+            text="2019 : Master Data Science",
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=130,
+            x1=500,
+            y1=150,
+            text="Université Paris-Saclay",
+        ),
+    ]
+
+    extractor = EducationExtractor()
+
+    educations = extractor.extract(blocks)
+
+    assert len(educations) == 1
+    assert educations[0].year == "2019"
+    assert educations[0].degree == "Master Data Science"
+    assert educations[0].institution == "Université Paris-Saclay"
+
+
+def test_extract_education_year_on_separate_line():
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=100,
+            x1=500,
+            y1=120,
+            text="2020",
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=130,
+            x1=500,
+            y1=150,
+            text="Master Intelligence Artificielle",
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=160,
+            x1=500,
+            y1=180,
+            text="Université Paris Cité",
+        ),
+    ]
+
+    extractor = EducationExtractor()
+
+    educations = extractor.extract(blocks)
+
+    assert len(educations) == 1
+    assert educations[0].year == "2020"
+    assert educations[0].degree == "Master Intelligence Artificielle"
+    assert educations[0].institution == "Université Paris Cité"
+
+
+def test_extract_education_all_on_one_line():
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=100,
+            x1=500,
+            y1=120,
+            text="2021 : Master Data Science – Université Paris-Saclay",
+        ),
+    ]
+
+    extractor = EducationExtractor()
+
+    educations = extractor.extract(blocks)
+
+    assert len(educations) == 1
+    assert educations[0].year == "2021"
+    assert educations[0].degree == "Master Data Science"
+    assert educations[0].institution == "Université Paris-Saclay"
+
+
+def test_extract_engineering_degree():
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=100,
+            x1=500,
+            y1=120,
+            text="2018 : Diplôme d'ingénieur informatique",
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=130,
+            x1=500,
+            y1=150,
+            text="INSA Lyon",
+        ),
+    ]
+
+    extractor = EducationExtractor()
+
+    educations = extractor.extract(blocks)
+
+    assert len(educations) == 1
+    assert educations[0].year == "2018"
+    assert educations[0].degree == "Diplôme d'ingénieur informatique"
+    assert educations[0].institution == "INSA Lyon"
+
+
+def test_extract_education_multiline_degree():
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=100,
+            x1=500,
+            y1=120,
+            text=(
+                "2022 : « Master\n"
+                "Data Science » – Niveau 7\n"
+                "Université Paris-Saclay"
+            ),
+        ),
+    ]
+
+    extractor = EducationExtractor()
+
+    educations = extractor.extract(blocks)
+
+    assert len(educations) == 1
+    assert educations[0].year == "2022"
+    assert educations[0].degree == "Master Data Science"
+    assert educations[0].institution == "Université Paris-Saclay"

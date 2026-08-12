@@ -5,6 +5,7 @@ from app.services.layout_extractor import TextBlock
 
 
 class EducationExtractor:
+    """Extract education entries from CV text blocks."""
 
     YEAR_RANGE_PATTERN = re.compile(
         r"\b((?:19|20)\d{2})\s*[-–—]\s*((?:19|20)\d{2})\b"
@@ -12,6 +13,13 @@ class EducationExtractor:
 
     YEAR_PATTERN = re.compile(
         r"\b((?:19|20)\d{2})\b"
+    )
+
+    LEVEL_PATTERN = re.compile(
+        r"\s*[–—-]\s*Niveau\s+\d+"
+        r"(?:\s*\(BAC\+\d+(?:/\d+)?\))?"
+        r"|\s*\(BAC\+\d+(?:/\d+)?\)",
+        flags=re.IGNORECASE,
     )
 
     def extract(
@@ -22,7 +30,10 @@ class EducationExtractor:
         if not blocks:
             return []
 
-        # On conserve les lignes du PDF.
+        # ---------------------------------------------------------
+        # 1. Conserver les lignes du PDF
+        # ---------------------------------------------------------
+
         lines: list[str] = []
 
         for block in blocks:
@@ -36,21 +47,26 @@ class EducationExtractor:
 
         i = 0
 
+        # ---------------------------------------------------------
+        # 2. Parcourir les lignes et détecter les années
+        # ---------------------------------------------------------
+
         while i < len(lines):
 
             line = lines[i]
 
-            # Une formation commence par une année.
-            if not self._extract_year(line):
+            year = self._extract_year(line)
+
+            if not year:
                 i += 1
                 continue
 
-            year = self._extract_year(line)
-
-            # Collecte toutes les lignes jusqu'à la prochaine année.
+            # Une formation commence avec cette ligne.
             education_lines = [line]
             i += 1
 
+            # Toutes les lignes suivantes appartiennent à cette
+            # formation jusqu'à la prochaine année.
             while i < len(lines):
 
                 next_line = lines[i]
@@ -75,39 +91,103 @@ class EducationExtractor:
 
         return educations
 
+    # =============================================================
+    # Parsing d'une formation
+    # =============================================================
+
     def _parse_education(
         self,
         lines: list[str],
     ) -> tuple[str, str | None]:
 
-        text = " ".join(lines)
+        if not lines:
+            return "", None
 
         # ---------------------------------------------------------
-        # 1. Extraire le diplôme entre « »
+        # Cas particulier : année seule sur une ligne
+        #
+        # 2020
+        # Master Intelligence Artificielle
+        # Université Paris Cité
         # ---------------------------------------------------------
+
+        first_line = lines[0]
+
+        year_match = self.YEAR_RANGE_PATTERN.search(first_line)
+
+        if year_match:
+            content_first_line = (
+                first_line[:year_match.start()]
+                + first_line[year_match.end():]
+            ).strip()
+        else:
+            year_match = self.YEAR_PATTERN.search(first_line)
+
+            if year_match:
+                content_first_line = (
+                    first_line[:year_match.start()]
+                    + first_line[year_match.end():]
+                ).strip()
+            else:
+                content_first_line = first_line
+
+        # Supprimer ":" qui peut rester après l'année.
+        content_first_line = re.sub(
+            r"^\s*:\s*",
+            "",
+            content_first_line,
+        ).strip()
+
+        remaining_lines = []
+
+        if content_first_line:
+            remaining_lines.append(content_first_line)
+
+        remaining_lines.extend(lines[1:])
+
+        # ---------------------------------------------------------
+        # Si aucune ligne ne reste
+        # ---------------------------------------------------------
+
+        if not remaining_lines:
+            return "", None
+
+        # ---------------------------------------------------------
+        # 1. Cas diplôme entre guillemets
+        #
+        # « Master Data Science » – Niveau 7
+        # Université Paris-Saclay
+        #
+        # ou
+        #
+        # BTS « Informatique Industrielle »
+        # Lycée ORT Montreuil 93
+        # ---------------------------------------------------------
+
+        full_text = " ".join(remaining_lines)
 
         quoted_match = re.search(
             r"«\s*(.*?)\s*»",
-            text,
+            full_text,
         )
 
         if quoted_match:
 
             quoted_degree = quoted_match.group(1).strip()
 
-            # Cas normal :
-            #
-            # 2025-2026 : « Expert en Ingénierie de l’IA »
-            #
-            # => Expert en Ingénierie de l’IA
-            #
-            # Mais pour :
-            #
-            # 2001: BTS « Informatique Industrielle »
-            #
-            # => BTS « Informatique Industrielle »
-            before_quote = text[:quoted_match.start()].strip()
+            before_quote = full_text[
+                :quoted_match.start()
+            ].strip()
 
+            after_quote = full_text[
+                quoted_match.end():
+            ].strip()
+
+            # Cas BTS :
+            #
+            # BTS « Informatique Industrielle »
+            #
+            # Le BTS fait partie du diplôme.
             if re.search(
                 r"\bBTS\b",
                 before_quote,
@@ -116,7 +196,7 @@ class EducationExtractor:
                 degree = (
                     before_quote
                     + " "
-                    + text[
+                    + full_text[
                         quoted_match.start():
                         quoted_match.end()
                     ]
@@ -125,120 +205,290 @@ class EducationExtractor:
             else:
                 degree = quoted_degree
 
-        else:
-            degree = text
+            # Supprimer le niveau.
+            degree = self._clean_degree(degree)
+
+            # Le reste peut contenir :
+            #
+            # – Niveau 7
+            # Université Paris-Saclay
+            #
+            # ou directement :
+            #
+            # Université Paris-Saclay
+            institution = self._extract_institution_from_after_quote(
+                after_quote
+            )
+
+            # Si l'établissement n'a pas été trouvé après les
+            # guillemets, chercher dans les lignes restantes.
+            if institution is None:
+                institution = self._find_institution(
+                    remaining_lines,
+                    degree,
+                )
+
+            return degree, institution
 
         # ---------------------------------------------------------
-        # 2. Nettoyer l'année
+        # 2. Format classique :
+        #
+        # 2019 : Master Data Science
+        # Université Paris-Saclay
         # ---------------------------------------------------------
 
-        degree = self.YEAR_RANGE_PATTERN.sub("", degree)
-        degree = self.YEAR_PATTERN.sub("", degree)
+        if len(remaining_lines) >= 2:
 
+            first_content = remaining_lines[0]
+
+            # Si le diplôme et l'établissement sont sur la même
+            # ligne :
+            #
+            # Master Data Science – Université Paris-Saclay
+            #
+            same_line = self._split_degree_institution(
+                first_content
+            )
+
+            if same_line:
+                degree, institution = same_line
+                return degree, institution
+
+            # Sinon :
+            #
+            # Master Data Science
+            # Université Paris-Saclay
+            #
+            degree = self._clean_degree(first_content)
+
+            institution = self._find_institution(
+                remaining_lines[1:],
+                degree,
+            )
+
+            return degree, institution
+
+        # ---------------------------------------------------------
+        # 3. Tout est sur une seule ligne :
+        #
+        # 2021 : Master Data Science – Université Paris-Saclay
+        # ---------------------------------------------------------
+
+        single_line = remaining_lines[0]
+
+        same_line = self._split_degree_institution(
+            single_line
+        )
+
+        if same_line:
+            return same_line
+
+        # Sinon toute la ligne est considérée comme le diplôme.
+        return self._clean_degree(single_line), None
+
+    # =============================================================
+    # Séparer diplôme / établissement sur une même ligne
+    # =============================================================
+
+    def _split_degree_institution(
+        self,
+        text: str,
+    ) -> tuple[str, str] | None:
+
+        # Format :
+        #
+        # Master Data Science – Université Paris-Saclay
+        #
+        # On utilise un tiret long comme séparateur.
+        match = re.search(
+            r"\s+[–—]\s+",
+            text,
+        )
+
+        if not match:
+            return None
+
+        degree = text[:match.start()].strip()
+        institution = text[match.end():].strip()
+
+        if not degree or not institution:
+            return None
+
+        # Attention :
+        #
+        # "Master Data Science – Niveau 7"
+        #
+        # ne doit PAS être interprété comme une institution.
+        if re.match(
+            r"^Niveau\s+\d+",
+            institution,
+            flags=re.IGNORECASE,
+        ):
+            return None
+
+        degree = self._clean_degree(degree)
+
+        institution = self._clean_institution(
+            institution
+        )
+
+        return degree, institution
+
+    # =============================================================
+    # Nettoyage du diplôme
+    # =============================================================
+
+    def _clean_degree(
+        self,
+        degree: str,
+    ) -> str:
+
+        degree = degree.strip()
+
+        # Supprimer l'année.
+        degree = self.YEAR_RANGE_PATTERN.sub(
+            "",
+            degree,
+        )
+
+        degree = self.YEAR_PATTERN.sub(
+            "",
+            degree,
+        )
+
+        # Supprimer ":" au début.
         degree = re.sub(
             r"^\s*:\s*",
             "",
             degree,
         )
 
-        # ---------------------------------------------------------
-        # 3. Supprimer les informations de niveau
-        # ---------------------------------------------------------
-
-        degree = re.sub(
-            r"\s*[–—-]\s*Niveau\s+\d+.*$",
+        # Supprimer les niveaux :
+        #
+        # – Niveau 7
+        # – Niveau 7 (BAC+5)
+        # (BAC+5)
+        #
+        degree = self.LEVEL_PATTERN.sub(
             "",
             degree,
-            flags=re.IGNORECASE,
         )
 
-        degree = degree.strip()
-
-        # ---------------------------------------------------------
-        # 4. Trouver l'établissement
-        # ---------------------------------------------------------
-
-        institution = self._extract_institution(
-            lines,
-            text,
-            degree,
+        degree = degree.strip(
+            " \t–—-:"
         )
 
-        return degree, institution
+        return degree.strip()
 
-    def _extract_institution(
+    # =============================================================
+    # Extraction de l'établissement après les guillemets
+    # =============================================================
+
+    def _extract_institution_from_after_quote(
         self,
-        lines: list[str],
         text: str,
-        degree: str,
     ) -> str | None:
 
-        # L'établissement apparaît généralement après
-        # les informations concernant le diplôme.
+        if not text:
+            return None
 
-        # On cherche la fin du diplôme / niveau.
-        level_match = re.search(
-            r"\(BAC\+\d+(?:/\d+)?\)",
-            text,
-            flags=re.IGNORECASE,
-        )
-
-        if level_match:
-            institution = text[level_match.end():].strip()
-
-            if institution:
-                return self._clean_institution(institution)
-
-        # Cas BTS sans niveau :
-        #
-        # 2001: BTS « Informatique Industrielle »
-        # Lycée ORT Montreuil 93
-
-        quoted_match = re.search(
-            r"«\s*.*?\s*»",
+        # Supprimer d'abord les informations de niveau.
+        text = self.LEVEL_PATTERN.sub(
+            "",
             text,
         )
-
-        if quoted_match:
-            institution = text[quoted_match.end():].strip()
-
-            # Si le texte restant contient le début du diplôme,
-            # on essaie de le supprimer.
-            institution = re.sub(
-                r"^.*?\)\s*",
-                "",
-                institution,
-            ).strip()
-
-            if institution:
-                return self._clean_institution(institution)
-
-        # Fallback : chercher une ligne qui ne ressemble
-        # pas au diplôme.
-        if len(lines) >= 2:
-            candidate = lines[-1]
-
-            if not self._looks_like_degree(candidate):
-                return self._clean_institution(candidate)
-
-        return None
-
-    @staticmethod
-    def _looks_like_degree(text: str) -> bool:
-        return bool(
-            re.search(
-                r"niveau\s+\d+|BAC\+\d+|BTS|licence|master|ingénieur",
-                text,
-                flags=re.IGNORECASE,
-            )
-        )
-
-    @staticmethod
-    def _clean_institution(text: str) -> str:
 
         text = text.strip()
 
-        # Supprime ponctuation finale.
+        if not text:
+            return None
+
+        return self._clean_institution(text)
+
+    # =============================================================
+    # Recherche de l'établissement
+    # =============================================================
+
+    def _find_institution(
+        self,
+        lines: list[str],
+        degree: str,
+    ) -> str | None:
+
+        for line in lines:
+
+            candidate = line.strip()
+
+            if not candidate:
+                continue
+
+            # Une ligne ressemblant encore au diplôme
+            # n'est probablement pas l'établissement.
+            if self._looks_like_degree(candidate):
+                continue
+
+            # Supprimer les niveaux éventuels.
+            candidate = self.LEVEL_PATTERN.sub(
+                "",
+                candidate,
+            ).strip()
+
+            if candidate:
+                return self._clean_institution(
+                    candidate
+                )
+
+        return None
+
+    # =============================================================
+    # Détection d'une ligne de diplôme
+    # =============================================================
+
+    @staticmethod
+    def _looks_like_degree(
+        text: str,
+    ) -> bool:
+
+        return bool(
+            re.search(
+                r"""
+                niveau\s+\d+
+                |BAC\+\d+
+                |\bBTS\b
+                |\blicence\b
+                |\bmaster\b
+                |\bdoctorat\b
+                |\bMBA\b
+                |ingénieur
+                |diplôme
+                """,
+                text,
+                flags=re.IGNORECASE | re.VERBOSE,
+            )
+        )
+
+    # =============================================================
+    # Nettoyage établissement
+    # =============================================================
+
+    @staticmethod
+    def _clean_institution(
+        text: str,
+    ) -> str:
+
+        text = text.strip()
+
+        # Supprimer les informations de niveau qui auraient pu
+        # rester devant l'établissement.
+        text = re.sub(
+            r"^[–—-]\s*Niveau\s+\d+"
+            r"(?:\s*\(BAC\+\d+(?:/\d+)?\))?\s*",
+            "",
+            text,
+            flags=re.IGNORECASE,
+        )
+
+        # Supprimer ponctuation finale.
         text = re.sub(
             r"[.,;]+$",
             "",
@@ -247,12 +497,18 @@ class EducationExtractor:
 
         return text.strip()
 
+    # =============================================================
+    # Extraction année
+    # =============================================================
+
     def _extract_year(
         self,
         text: str,
     ) -> str | None:
 
-        range_match = self.YEAR_RANGE_PATTERN.search(text)
+        range_match = self.YEAR_RANGE_PATTERN.search(
+            text
+        )
 
         if range_match:
             return (
@@ -260,7 +516,9 @@ class EducationExtractor:
                 f"{range_match.group(2)}"
             )
 
-        year_match = self.YEAR_PATTERN.search(text)
+        year_match = self.YEAR_PATTERN.search(
+            text
+        )
 
         if year_match:
             return year_match.group(1)
