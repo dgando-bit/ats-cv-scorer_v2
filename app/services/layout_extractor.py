@@ -57,4 +57,10 @@ class LayoutExtractor:
 
     @staticmethod
     def _clean_text(text: str) -> str:
-        return " ".join(text.split())
+        lines = [
+            line.strip()
+            for line in text.splitlines()
+            if line.strip()
+        ]
+
+        return "\n".join(lines)
