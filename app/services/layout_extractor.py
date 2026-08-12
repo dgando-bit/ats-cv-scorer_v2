@@ -30,7 +30,9 @@ class LayoutExtractor:
 
         with pymupdf.open(file_path) as document:
             for page_number, page in enumerate(document, start=1):
-                for block in page.get_text("blocks"):
+                page_blocks = page.get_text("blocks")
+
+                for block in page_blocks:
                     x0, y0, x1, y1, text, *_ = block
 
                     text = self._clean_text(text)
@@ -54,8 +56,16 @@ class LayoutExtractor:
 
     @staticmethod
     def _clean_text(text: str) -> str:
+        """
+        Clean the text contained inside a PDF text block.
+
+        Empty lines are removed and surrounding whitespace is stripped.
+        Internal line breaks are preserved because they may represent
+        meaningful structure that can be handled later by the extractors.
+        """
+
         lines = [
-            line.strip()
+            " ".join(line.split())
             for line in text.splitlines()
             if line.strip()
         ]

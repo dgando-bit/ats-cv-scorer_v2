@@ -175,3 +175,176 @@ def test_extract_multiple_experiences():
 
     assert experiences[1].company == "Airweb - Paragon ID"
     assert experiences[1].role == "Développeur Back-end"
+
+
+def test_extract_experience_multiline_header():
+
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=100,
+            x1=500,
+            y1=120,
+            text=(
+                "IA & Machine Learning Engineer\n"
+                "Liora\n"
+                "(2025 - 2026)"
+            ),
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=130,
+            x1=500,
+            y1=150,
+            text="Analyse de données, Computer Vision & MLOps",
+        ),
+    ]
+
+    extractor = ExperienceExtractor()
+
+    experiences = extractor.extract(blocks)
+
+    assert len(experiences) == 1
+
+    experience = experiences[0]
+
+    assert experience.role == "IA & Machine Learning Engineer"
+    assert experience.company == "Liora"
+    assert experience.start_date == "2025"
+    assert experience.end_date == "2026"
+
+
+def test_extract_experience_company_role_date_separate_blocks():
+
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=100,
+            x1=500,
+            y1=120,
+            text="Airweb - Paragon ID",
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=125,
+            x1=500,
+            y1=145,
+            text="Développeur Back-end",
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=150,
+            x1=500,
+            y1=170,
+            text="(2021 - 2025)",
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=180,
+            x1=500,
+            y1=200,
+            text="Conception d'APIs REST.",
+        ),
+    ]
+
+    extractor = ExperienceExtractor()
+
+    experiences = extractor.extract(blocks)
+
+    assert len(experiences) == 1
+
+    experience = experiences[0]
+
+    assert experience.company == "Airweb - Paragon ID"
+    assert experience.role == "Développeur Back-end"
+    assert experience.start_date == "2021"
+    assert experience.end_date == "2025"
+
+
+def test_extract_experience_present_date():
+
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=100,
+            x1=500,
+            y1=120,
+            text="Data Engineer - ACME (2024 - présent)",
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=130,
+            x1=500,
+            y1=150,
+            text="Construction de pipelines de données.",
+        ),
+    ]
+
+    extractor = ExperienceExtractor()
+
+    experiences = extractor.extract(blocks)
+
+    assert len(experiences) == 1
+
+    experience = experiences[0]
+
+    assert experience.start_date == "2024"
+    assert experience.end_date == "présent"
+
+
+def test_extract_experience_description_multiline_block():
+
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=100,
+            x1=500,
+            y1=120,
+            text="Data Engineer ACME (2024 - 2025)",
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=130,
+            x1=500,
+            y1=150,
+            text=(
+                "Conception de pipelines de données pour alimenter les APIs.\n"
+                "Transformation et nettoyage des données.\n"
+                "Industrialisation des traitements."
+            ),
+        ),
+    ]
+
+    extractor = ExperienceExtractor()
+
+    experiences = extractor.extract(blocks)
+
+    assert len(experiences) == 1
+
+    experience = experiences[0]
+
+    assert experience.description == [
+        "Conception de pipelines de données pour alimenter les APIs.",
+        "Transformation et nettoyage des données.",
+        "Industrialisation des traitements.",
+    ]
