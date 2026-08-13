@@ -236,11 +236,11 @@ class ExperienceExtractor:
             description_blocks = blocks[1:]
 
         for block in description_blocks:
-            for line in block.text.splitlines():
-                line = line.strip()
-
-                if line:
-                    description.append(line)
+            description.extend(
+                self._normalize_description_block(
+                    block.text
+                )
+            )
 
         return Experience(
             company=company,
@@ -407,3 +407,80 @@ class ExperienceExtractor:
             for line in text.splitlines()
             if line.strip()
         ]
+
+    @staticmethod
+    def _normalize_description_block(
+            text: str,
+    ) -> list[str]:
+        """
+        Reconstruct logical description items from PDF line wrapping.
+
+        A line break may represent either:
+
+        - a visual wrapping artefact:
+            "Develop marketing strategies and"
+            "campaigns for customers."
+
+        - a real sentence boundary:
+            "First task."
+            "Second task."
+
+        Lines are therefore merged until a sentence-ending
+        punctuation mark is encountered.
+        """
+
+        lines = [
+            line.strip()
+            for line in text.splitlines()
+            if line.strip()
+        ]
+
+        if not lines:
+            return []
+
+        items: list[str] = []
+        current_parts: list[str] = []
+
+        for line in lines:
+
+            current_parts.append(line)
+
+            # Une phrase est considérée terminée lorsqu'elle
+            # se termine par une ponctuation forte.
+            if ExperienceExtractor._ends_logical_item(line):
+
+                item = " ".join(current_parts).strip()
+
+                if item:
+                    items.append(item)
+
+                current_parts = []
+
+        # Il peut rester un fragment sans ponctuation finale.
+        if current_parts:
+            item = " ".join(current_parts).strip()
+
+            if item:
+                items.append(item)
+
+        return items
+
+    @staticmethod
+    def _ends_logical_item(
+            text: str,
+    ) -> bool:
+        """Return True when a line appears to end a logical sentence."""
+
+        text = text.rstrip()
+
+        if not text:
+            return False
+
+        return text.endswith(
+            (
+                ".",
+                "!",
+                "?",
+                ";",
+            )
+        )

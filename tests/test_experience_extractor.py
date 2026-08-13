@@ -416,3 +416,87 @@ def test_extract_generic_french_role_company():
 
     assert experience.company == "ACME France"
     assert experience.role == "Chef de projet Data"
+
+def test_merge_wrapped_description_lines():
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=220,
+            y0=100,
+            x1=550,
+            y1=130,
+            text=(
+                "2030 - PRESENT\n"
+                "Borcelle Studio\n"
+                "Marketing Manager & Specialist"
+            ),
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=240,
+            y0=150,
+            x1=550,
+            y1=190,
+            text=(
+                "Develop and execute comprehensive marketing strategies and\n"
+                "campaigns that align with the company's goals and objectives."
+            ),
+        ),
+    ]
+
+    extractor = ExperienceExtractor()
+
+    experiences = extractor.extract(blocks)
+
+    assert experiences[0].description == [
+        (
+            "Develop and execute comprehensive marketing strategies and "
+            "campaigns that align with the company's goals and objectives."
+        )
+    ]
+
+
+def test_merge_fragmented_description_words():
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=220,
+            y0=100,
+            x1=550,
+            y1=130,
+            text="Développeur Back-end Airweb (2021 - 2025)",
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=240,
+            y0=150,
+            x1=550,
+            y1=220,
+            text=(
+                "Concevoir,\n"
+                "implémenter\n"
+                "et\n"
+                "optimiser\n"
+                "les\n"
+                "bases\n"
+                "de\n"
+                "données\n"
+                "(modélisations requêtes, intégrité)"
+            ),
+        ),
+    ]
+
+    extractor = ExperienceExtractor()
+
+    experiences = extractor.extract(blocks)
+
+    assert experiences[0].description == [
+        (
+            "Concevoir, implémenter et optimiser les bases de données "
+            "(modélisations requêtes, intégrité)"
+        )
+    ]
