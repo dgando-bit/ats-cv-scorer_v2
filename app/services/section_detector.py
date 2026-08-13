@@ -61,6 +61,12 @@ class SectionDetector:
             "tools",
             "technologies",
         },
+        "references": {
+            "reference",
+            "references",
+            "référence",
+            "références",
+        },
     }
 
     def detect(

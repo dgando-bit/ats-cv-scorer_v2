@@ -252,27 +252,31 @@ class ExperienceExtractor:
 
     @classmethod
     def _extract_role_company(
-        cls,
-        header: str,
+            cls,
+            header: str,
     ) -> tuple[str | None, str | None]:
         """Extract role and company from an experience header.
 
-        1. Un connecteur explicite ("chez", "at"...) sépare
-           clairement le rôle (avant) de l'entreprise (après).
-           Ce cas généralise à n'importe quel intitulé.
-        2. Sinon, on cherche un rôle connu (KNOWN_ROLES) dans le
-           texte, comme avant : c'est nécessaire car les en-têtes
-           réels sont trop ambigus (séparateurs utilisés pour
-           joindre plusieurs entreprises, absence totale de
-           séparateur...) pour être résolus sans connaître le rôle.
-        3. À défaut, on garde le texte comme entreprise potentielle
-           plutôt que de tout perdre.
+        Strategy:
+        1. Explicit connector ("chez", "at", "pour", "for").
+        2. Multiline header:
+           - detect the line that looks like a job title,
+           - use the remaining line(s) as company.
+        3. Known role fallback.
+        4. Preserve the header as company if nothing can be inferred.
         """
 
         header = header.strip()
 
         if not header:
             return None, None
+
+        # ---------------------------------------------------------
+        # 1. Connecteur explicite
+        #
+        # Data Engineer chez Liora
+        # Developer at ACME
+        # ---------------------------------------------------------
 
         connector_match = cls.ROLE_COMPANY_CONNECTOR_PATTERN.search(
             header
@@ -285,13 +289,64 @@ class ExperienceExtractor:
             if role and company:
                 return role, company
 
+        # ---------------------------------------------------------
+        # 2. Header multi-lignes
+        #
+        # Borcelle Studio
+        # Marketing Manager & Specialist
+        #
+        # ACME France
+        # Chef de projet Data
+        # ---------------------------------------------------------
+
+        lines = cls._split_header_lines(header)
+
+        if len(lines) >= 2:
+
+            role_candidates = [
+                line
+                for line in lines
+                if cls._looks_like_job_title(line)
+            ]
+
+            # Cas non ambigu :
+            # exactement une ligne ressemble à un métier.
+            if len(role_candidates) == 1:
+                role = role_candidates[0]
+
+                company_lines = [
+                    line
+                    for line in lines
+                    if line != role
+                ]
+
+                company = " ".join(
+                    company_lines
+                ).strip()
+
+                if company:
+                    return role, company
+
+        # ---------------------------------------------------------
+        # 3. Rôles connus
+        #
+        # Utile pour les headers sur une seule ligne :
+        #
+        # IA & Machine Learning Engineer Liora
+        #
+        # Adiict | Findeur | Cotep Développeur Informatique
+        # ---------------------------------------------------------
+
         header_lower = header.lower()
 
-        # Rôles connus, triés par longueur décroissante pour éviter
-        # qu'un rôle court soit trouvé avant un rôle plus spécifique.
-        roles = sorted(cls.KNOWN_ROLES, key=len, reverse=True)
+        roles = sorted(
+            cls.KNOWN_ROLES,
+            key=len,
+            reverse=True,
+        )
 
         for role in roles:
+
             role_lower = role.lower()
 
             index = header_lower.find(role_lower)
@@ -299,22 +354,33 @@ class ExperienceExtractor:
             if index == -1:
                 continue
 
-            company_before = header[:index].strip()
-            company_after = header[index + len(role):].strip()
+            company_before = (
+                header[:index]
+                .strip()
+            )
+
+            company_after = (
+                header[index + len(role):]
+                .strip()
+            )
 
             company_parts = [
                 part
-                for part in (company_before, company_after)
+                for part in (
+                    company_before,
+                    company_after,
+                )
                 if part
             ]
 
-            company = " ".join(company_parts).strip()
+            company = " ".join(
+                company_parts
+            ).strip()
 
             return role, company or None
 
         # ---------------------------------------------------------
-        # Repli : aucun indice trouvé, on garde le texte comme
-        # entreprise potentielle plutôt que de tout perdre.
+        # 4. Aucun indice exploitable
         # ---------------------------------------------------------
 
         return None, header

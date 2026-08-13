@@ -348,3 +348,71 @@ def test_extract_experience_description_multiline_block():
         "Transformation et nettoyage des données.",
         "Industrialisation des traitements.",
     ]
+
+def test_extract_generic_multiline_role_company():
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=220,
+            y0=100,
+            x1=550,
+            y1=140,
+            text=(
+                "2030 - PRESENT\n"
+                "Borcelle Studio\n"
+                "Marketing Manager & Specialist"
+            ),
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=240,
+            y0=150,
+            x1=550,
+            y1=180,
+            text="Develop comprehensive marketing strategies.",
+        ),
+    ]
+
+    extractor = ExperienceExtractor()
+
+    experiences = extractor.extract(blocks)
+
+    assert len(experiences) == 1
+
+    experience = experiences[0]
+
+    assert experience.company == "Borcelle Studio"
+    assert experience.role == "Marketing Manager & Specialist"
+    assert experience.start_date == "2030"
+    assert experience.end_date == "PRESENT"
+
+
+def test_extract_generic_french_role_company():
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=220,
+            y0=100,
+            x1=550,
+            y1=140,
+            text=(
+                "2022 - 2025\n"
+                "ACME France\n"
+                "Chef de projet Data"
+            ),
+        ),
+    ]
+
+    extractor = ExperienceExtractor()
+
+    experiences = extractor.extract(blocks)
+
+    assert len(experiences) == 1
+
+    experience = experiences[0]
+
+    assert experience.company == "ACME France"
+    assert experience.role == "Chef de projet Data"
