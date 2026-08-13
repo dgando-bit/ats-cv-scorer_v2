@@ -41,6 +41,14 @@ class CV(BaseModel):
         default_factory=list
     )
 
+    soft_skills: list[str] = Field(
+        default_factory=list
+    )
+
+    tools: list[str] = Field(
+        default_factory=list
+    )
+
     languages: list[str] = Field(
         default_factory=list
     )

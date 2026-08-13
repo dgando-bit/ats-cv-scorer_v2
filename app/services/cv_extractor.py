@@ -1,3 +1,5 @@
+import re
+
 from app.models.cv import CV, Contact
 from app.services.document_parser import DocumentParser
 from app.services.layout_extractor import LayoutExtractor
@@ -70,22 +72,22 @@ class CVExtractor:
             education_blocks
         )
 
-        # 9. Skills
-        skills_text = self._blocks_to_text(
-            sections.get("skills", [])
+        # 9. Skills / soft skills / tools
+        skills = self._extract_list_section(
+            sections, "skills"
         )
 
-        skills = self._extract_skills(
-            skills_text
+        soft_skills = self._extract_list_section(
+            sections, "soft_skills"
+        )
+
+        tools = self._extract_list_section(
+            sections, "tools"
         )
 
         # 10. Languages
-        languages_text = self._blocks_to_text(
-            sections.get("languages", [])
-        )
-
-        languages = self._extract_languages(
-            languages_text
+        languages = self._extract_list_section(
+            sections, "languages"
         )
 
         return CV(
@@ -96,6 +98,8 @@ class CVExtractor:
             experiences=experiences,
             education=education,
             skills=skills,
+            soft_skills=soft_skills,
+            tools=tools,
             languages=languages,
         )
 
@@ -171,26 +175,57 @@ class CVExtractor:
 
         return None
 
-    @staticmethod
-    def _extract_skills(text: str) -> list[str]:
+    # Séparateurs courants utilisés dans les CV pour lister des
+    # éléments sur une même ligne : virgule, point-virgule, puces
+    # (•, ·, ‣, -, *), barre verticale...
+    _LIST_SEPARATOR_PATTERN = re.compile(
+        r"[,;•·‣|]|(?<=\S)\s[-*]\s(?=\S)"
+    )
+
+    @classmethod
+    def _extract_list_section(
+        cls,
+        sections: dict,
+        section_name: str,
+    ) -> list[str]:
+        """Extract a section made of a simple list of items
+        (skills, soft_skills, tools, languages...).
+        """
+
+        text = cls._blocks_to_text(
+            sections.get(section_name, [])
+        )
+
+        return cls._split_list_items(text)
+
+    @classmethod
+    def _split_list_items(cls, text: str) -> list[str]:
+        """Split a block of text into individual list items.
+
+        Gère à la fois le cas où chaque élément est sur sa propre
+        ligne et le cas où plusieurs éléments sont regroupés sur une
+        même ligne, séparés par une virgule, un point-virgule ou une
+        puce.
+        """
 
         if not text:
             return []
 
-        return [
-            skill.strip()
-            for skill in text.splitlines()
-            if skill.strip()
-        ]
+        items: list[str] = []
 
-    @staticmethod
-    def _extract_languages(text: str) -> list[str]:
+        for line in text.splitlines():
 
-        if not text:
-            return []
+            line = line.strip()
 
-        return [
-            language.strip()
-            for language in text.splitlines()
-            if language.strip()
-        ]
+            if not line:
+                continue
+
+            parts = cls._LIST_SEPARATOR_PATTERN.split(line)
+
+            for part in parts:
+                part = part.strip(" \t-*•·‣")
+
+                if part:
+                    items.append(part)
+
+        return items

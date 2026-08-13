@@ -16,6 +16,17 @@ class ExperienceExtractor:
         re.IGNORECASE,
     )
 
+    # Liste de rôles connus. Les en-têtes de CV réels s'avèrent trop
+    # ambigus pour être découpés de façon purement générique (ex:
+    # "Adiict | Findeur | Cotep Développeur Informatique" où "|"
+    # sépare des entreprises, pas le rôle de l'entreprise ; ou
+    # "IA & Machine Learning Engineer Liora" sans aucun séparateur).
+    # On garde donc une correspondance par rôle connu comme méthode
+    # la plus fiable, mais elle est utilisée en dernier recours
+    # après des règles génériques qui, elles, généralisent réellement
+    # (voir _extract_role_company). Pour une vraie généralisation
+    # au-delà de cette liste, brancher le modèle NER du projet
+    # (app/services/resume_ner.py) est la prochaine étape recommandée.
     KNOWN_ROLES = [
         "IA & Machine Learning Engineer",
         "Développeur Back-end",
@@ -29,6 +40,41 @@ class ExperienceExtractor:
         "Développeur Web",
         "Ingénieur Logiciel",
     ]
+
+    # Mots-clés indiquant qu'un segment de texte désigne un
+    # intitulé de poste plutôt qu'une entreprise. Utilisés
+    # uniquement pour désambiguïser un segment ENTIER délimité par
+    # un connecteur ou un séparateur (pas pour repérer une sous-
+    # chaîne au milieu d'un texte plus long, ce qui serait trop
+    # fragile).
+    JOB_TITLE_KEYWORDS = [
+        "engineer", "ingénieur", "ingenieur",
+        "developer", "développeur", "developpeur",
+        "manager", "responsable", "chef",
+        "director", "directeur", "directrice",
+        "consultant", "consultante",
+        "analyst", "analyste",
+        "architect", "architecte",
+        "scientist", "scientifique",
+        "chargé", "chargée", "charge",
+        "technicien", "technicienne", "technician",
+        "administrateur", "administratrice", "administrator",
+        "lead", "stagiaire", "intern", "apprenti", "apprentie",
+        "alternant", "alternante",
+        "coordinateur", "coordinatrice", "coordinator",
+        "spécialiste", "specialiste", "specialist",
+        "product owner", "scrum master", "designer",
+    ]
+
+    # Connecteurs explicites et non-ambigus entre un intitulé de
+    # poste et une entreprise, ex: "Data Engineer chez Liora",
+    # "Developer at Acme". Ce cas généralise réellement, car le
+    # connecteur lève l'ambiguïté sans avoir besoin de connaître
+    # le rôle à l'avance.
+    ROLE_COMPANY_CONNECTOR_PATTERN = re.compile(
+        r"\s+(?:chez|at|pour|for)\s+",
+        re.IGNORECASE,
+    )
 
     def extract(
             self,
@@ -209,27 +255,41 @@ class ExperienceExtractor:
         cls,
         header: str,
     ) -> tuple[str | None, str | None]:
-        """Extract role and company from an experience header."""
+        """Extract role and company from an experience header.
+
+        1. Un connecteur explicite ("chez", "at"...) sépare
+           clairement le rôle (avant) de l'entreprise (après).
+           Ce cas généralise à n'importe quel intitulé.
+        2. Sinon, on cherche un rôle connu (KNOWN_ROLES) dans le
+           texte, comme avant : c'est nécessaire car les en-têtes
+           réels sont trop ambigus (séparateurs utilisés pour
+           joindre plusieurs entreprises, absence totale de
+           séparateur...) pour être résolus sans connaître le rôle.
+        3. À défaut, on garde le texte comme entreprise potentielle
+           plutôt que de tout perdre.
+        """
 
         header = header.strip()
 
         if not header:
             return None, None
 
+        connector_match = cls.ROLE_COMPANY_CONNECTOR_PATTERN.search(
+            header
+        )
+
+        if connector_match:
+            role = header[: connector_match.start()].strip()
+            company = header[connector_match.end():].strip()
+
+            if role and company:
+                return role, company
+
         header_lower = header.lower()
 
-        # ---------------------------------------------------------
-        # Chercher un rôle connu.
-        #
-        # On trie par longueur décroissante afin d'éviter qu'un
-        # rôle court soit trouvé avant un rôle plus spécifique.
-        # ---------------------------------------------------------
-
-        roles = sorted(
-            cls.KNOWN_ROLES,
-            key=len,
-            reverse=True,
-        )
+        # Rôles connus, triés par longueur décroissante pour éviter
+        # qu'un rôle court soit trouvé avant un rôle plus spécifique.
+        roles = sorted(cls.KNOWN_ROLES, key=len, reverse=True)
 
         for role in roles:
             role_lower = role.lower()
@@ -240,18 +300,11 @@ class ExperienceExtractor:
                 continue
 
             company_before = header[:index].strip()
-            company_after = header[
-                index + len(role) :
-            ].strip()
+            company_after = header[index + len(role):].strip()
 
-            # Le nom de l'entreprise peut être avant ou après
-            # le rôle.
             company_parts = [
                 part
-                for part in (
-                    company_before,
-                    company_after,
-                )
+                for part in (company_before, company_after)
                 if part
             ]
 
@@ -260,12 +313,22 @@ class ExperienceExtractor:
             return role, company or None
 
         # ---------------------------------------------------------
-        # Aucun rôle connu.
-        #
-        # On garde le texte comme entreprise potentielle.
+        # Repli : aucun indice trouvé, on garde le texte comme
+        # entreprise potentielle plutôt que de tout perdre.
         # ---------------------------------------------------------
 
         return None, header
+
+    @classmethod
+    def _looks_like_job_title(cls, text: str) -> bool:
+        """Heuristic: does this text look like a job title?"""
+
+        text_lower = text.lower()
+
+        return any(
+            keyword in text_lower
+            for keyword in cls.JOB_TITLE_KEYWORDS
+        )
 
     @staticmethod
     def _split_header_lines(
