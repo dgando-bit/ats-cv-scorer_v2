@@ -123,21 +123,151 @@ class CVExtractor:
             for block in blocks
         )
 
-    @staticmethod
-    def _extract_candidate_name(blocks):
+    @classmethod
+    def _extract_candidate_name(
+            cls,
+            blocks,
+    ) -> str | None:
+        """Extract the candidate name from the top area of the CV."""
 
         if not blocks:
             return None
 
-        return blocks[0].text.strip()
+        candidates = [
+            block
+            for block in blocks
+            if (
+                    block.text.strip()
+                    and not cls._looks_like_section_heading(
+                block.text
+            )
+            )
+        ]
 
-    @staticmethod
-    def _extract_title(blocks):
-
-        if len(blocks) < 2:
+        if not candidates:
             return None
 
-        return blocks[1].text.strip()
+        # Le nom se trouve généralement parmi les blocs
+        # les plus hauts du document.
+        candidates = sorted(
+            candidates,
+            key=lambda block: (
+                block.page,
+                block.y0,
+            ),
+        )
+
+        return candidates[0].text.strip()
+
+    @classmethod
+    def _extract_title(
+            cls,
+            blocks,
+    ) -> str | None:
+        """Extract the professional title located below the candidate name."""
+
+        if not blocks:
+            return None
+
+        name_block = cls._find_candidate_name_block(
+            blocks
+        )
+
+        if name_block is None:
+            return None
+
+        candidates = []
+
+        for block in blocks:
+
+            text = block.text.strip()
+
+            if not text:
+                continue
+
+            if block.page != name_block.page:
+                continue
+
+            if block.y0 <= name_block.y0:
+                continue
+
+            if cls._looks_like_section_heading(text):
+                continue
+
+            # Un titre professionnel est généralement court.
+            if "\n" in text:
+                continue
+
+            if len(text) > 80:
+                continue
+
+            candidates.append(block)
+
+        if not candidates:
+            return None
+
+        # Priorité :
+        # 1. proximité verticale avec le nom
+        # 2. proximité horizontale
+        candidates = sorted(
+            candidates,
+            key=lambda block: (
+                block.y0 - name_block.y0,
+                abs(
+                    block.center_x
+                    - name_block.center_x
+                ),
+            ),
+        )
+
+        return candidates[0].text.strip()
+
+    @classmethod
+    def _find_candidate_name_block(
+            cls,
+            blocks,
+    ):
+        """Return the TextBlock most likely containing the candidate name."""
+
+        candidates = [
+            block
+            for block in blocks
+            if (
+                    block.text.strip()
+                    and not cls._looks_like_section_heading(
+                block.text
+            )
+            )
+        ]
+
+        if not candidates:
+            return None
+
+        return min(
+            candidates,
+            key=lambda block: (
+                block.page,
+                block.y0,
+            ),
+        )
+
+    @staticmethod
+    def _looks_like_section_heading(
+            text: str,
+    ) -> bool:
+        """Return True if text is a known CV section heading."""
+
+        normalized = (
+            text.strip()
+            .lower()
+            .replace(":", "")
+        )
+
+        return any(
+            normalized in aliases
+            for aliases
+            in SectionDetector.SECTION_ALIASES.values()
+        )
 
     def _extract_contact(self, text: str) -> Contact:
 
