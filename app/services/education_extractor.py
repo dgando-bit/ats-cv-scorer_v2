@@ -96,75 +96,73 @@ class EducationExtractor:
     # =============================================================
 
     def _parse_education(
-        self,
-        lines: list[str],
+            self,
+            lines: list[str],
     ) -> tuple[str, str | None]:
 
         if not lines:
             return "", None
 
         # ---------------------------------------------------------
-        # Cas particulier : année seule sur une ligne
-        #
-        # 2020
-        # Master Intelligence Artificielle
-        # Université Paris Cité
+        # 1. Supprimer l'année du début
         # ---------------------------------------------------------
 
-        first_line = lines[0]
+        content_lines = list(lines)
 
-        year_match = self.YEAR_RANGE_PATTERN.search(first_line)
+        first_line = content_lines[0]
 
-        if year_match:
-            content_first_line = (
-                first_line[:year_match.start()]
-                + first_line[year_match.end():]
-            ).strip()
-        else:
-            year_match = self.YEAR_PATTERN.search(first_line)
+        first_line = self.YEAR_RANGE_PATTERN.sub(
+            "",
+            first_line,
+        )
 
-            if year_match:
-                content_first_line = (
-                    first_line[:year_match.start()]
-                    + first_line[year_match.end():]
-                ).strip()
-            else:
-                content_first_line = first_line
+        first_line = self.YEAR_PATTERN.sub(
+            "",
+            first_line,
+        )
 
-        # Supprimer ":" qui peut rester après l'année.
-        content_first_line = re.sub(
+        first_line = re.sub(
             r"^\s*:\s*",
             "",
-            content_first_line,
+            first_line,
         ).strip()
 
-        remaining_lines = []
+        if first_line:
+            content_lines[0] = first_line
+        else:
+            content_lines = content_lines[1:]
 
-        if content_first_line:
-            remaining_lines.append(content_first_line)
+        content_lines = [
+            line.strip()
+            for line in content_lines
+            if line.strip()
+        ]
 
-        remaining_lines.extend(lines[1:])
-
-        # ---------------------------------------------------------
-        # Si aucune ligne ne reste
-        # ---------------------------------------------------------
-
-        if not remaining_lines:
+        if not content_lines:
             return "", None
 
         # ---------------------------------------------------------
-        # 1. Cas diplôme entre guillemets
+        # 2. Retirer les métadonnées
         #
-        # « Master Data Science » – Niveau 7
-        # Université Paris-Saclay
-        #
-        # ou
-        #
-        # BTS « Informatique Industrielle »
-        # Lycée ORT Montreuil 93
+        # GPA, moyenne, mention...
         # ---------------------------------------------------------
 
-        full_text = " ".join(remaining_lines)
+        content_lines = [
+            line
+            for line in content_lines
+            if not self._looks_like_metadata(line)
+        ]
+
+        if not content_lines:
+            return "", None
+
+        # ---------------------------------------------------------
+        # 3. Cas diplôme entre « »
+        #
+        # On conserve le comportement historique.
+        # ---------------------------------------------------------
+
+        full_text = " ".join(content_lines)
 
         quoted_match = re.search(
             r"«\s*(.*?)\s*»",
@@ -179,102 +177,122 @@ class EducationExtractor:
                 :quoted_match.start()
             ].strip()
 
-            after_quote = full_text[
-                quoted_match.end():
-            ].strip()
-
-            # Cas BTS :
-            #
-            # BTS « Informatique Industrielle »
-            #
-            # Le BTS fait partie du diplôme.
             if re.search(
-                r"\bBTS\b",
-                before_quote,
-                flags=re.IGNORECASE,
+                    r"\bBTS\b",
+                    before_quote,
+                    flags=re.IGNORECASE,
             ):
                 degree = (
-                    before_quote
-                    + " "
-                    + full_text[
-                        quoted_match.start():
-                        quoted_match.end()
-                    ]
+                        before_quote
+                        + " "
+                        + full_text[
+                            quoted_match.start():
+                            quoted_match.end()
+                        ]
                 ).strip()
-
             else:
                 degree = quoted_degree
 
-            # Supprimer le niveau.
-            degree = self._clean_degree(degree)
-
-            # Le reste peut contenir :
-            #
-            # – Niveau 7
-            # Université Paris-Saclay
-            #
-            # ou directement :
-            #
-            # Université Paris-Saclay
-            institution = self._extract_institution_from_after_quote(
-                after_quote
+            degree = self._clean_degree(
+                degree
             )
 
-            # Si l'établissement n'a pas été trouvé après les
-            # guillemets, chercher dans les lignes restantes.
+            institution = (
+                self._extract_institution_from_after_quote(
+                    full_text[
+                        quoted_match.end():
+                    ].strip()
+                )
+            )
+
             if institution is None:
                 institution = self._find_institution(
-                    remaining_lines,
+                    content_lines,
                     degree,
                 )
 
             return degree, institution
 
         # ---------------------------------------------------------
-        # 2. Format classique :
+        # 4. Diplôme + établissement sur une même ligne
         #
-        # 2019 : Master Data Science
-        # Université Paris-Saclay
+        # Exemple :
+        # Master Data Science – Université Paris-Saclay
         # ---------------------------------------------------------
 
-        if len(remaining_lines) >= 2:
+        if len(content_lines) == 1:
 
-            first_content = remaining_lines[0]
-
-            # Si le diplôme et l'établissement sont sur la même
-            # ligne :
-            #
-            # Master Data Science – Université Paris-Saclay
-            #
             same_line = self._split_degree_institution(
-                first_content
+                content_lines[0]
             )
 
             if same_line:
-                degree, institution = same_line
-                return degree, institution
+                return same_line
 
-            # Sinon :
-            #
-            # Master Data Science
-            # Université Paris-Saclay
-            #
-            degree = self._clean_degree(first_content)
+        # ---------------------------------------------------------
+        # 4. Détecter l'établissement
+        # ---------------------------------------------------------
 
-            institution = self._find_institution(
-                remaining_lines[1:],
-                degree,
+        institution_index = None
+
+        for index, line in enumerate(content_lines):
+
+            if self._looks_like_institution(line):
+                institution_index = index
+                break
+
+        if institution_index is not None:
+            institution = self._clean_institution(
+                content_lines[institution_index]
+            )
+
+            degree_lines = [
+                line
+                for index, line in enumerate(content_lines)
+                if index != institution_index
+            ]
+
+            degree = self._clean_degree(
+                " ".join(degree_lines)
             )
 
             return degree, institution
 
         # ---------------------------------------------------------
-        # 3. Tout est sur une seule ligne :
+        # 5. Ancien format :
         #
-        # 2021 : Master Data Science – Université Paris-Saclay
+        # diplôme
+        # établissement
         # ---------------------------------------------------------
 
-        single_line = remaining_lines[0]
+        if len(content_lines) >= 2:
+
+            first_content = content_lines[0]
+
+            same_line = self._split_degree_institution(
+                first_content
+            )
+
+            if same_line:
+                return same_line
+
+            degree = self._clean_degree(
+                first_content
+            )
+
+            institution = self._find_institution(
+                content_lines[1:],
+                degree,
+            )
+
+            if institution:
+                return degree, institution
+
+        # ---------------------------------------------------------
+        # 6. Une seule ligne
+        # ---------------------------------------------------------
+
+        single_line = content_lines[0]
 
         same_line = self._split_degree_institution(
             single_line
@@ -283,7 +301,6 @@ class EducationExtractor:
         if same_line:
             return same_line
 
-        # Sinon toute la ligne est considérée comme le diplôme.
         return self._clean_degree(single_line), None
 
     # =============================================================
@@ -524,3 +541,57 @@ class EducationExtractor:
             return year_match.group(1)
 
         return None
+
+    @staticmethod
+    def _looks_like_metadata(
+            text: str,
+    ) -> bool:
+        """Return True for education metadata that is not degree/institution."""
+
+        return bool(
+            re.search(
+                r"""
+                ^\s*GPA\s*:
+                |^\s*moyenne\s*:
+                |^\s*mention\s*:
+                |^\s*grade\s*:
+                """,
+                text,
+                flags=re.IGNORECASE | re.VERBOSE,
+            )
+        )
+
+    @staticmethod
+    def _looks_like_institution(
+            text: str,
+    ) -> bool:
+        """Heuristic: does this line look like an educational institution?"""
+
+        normalized = text.lower()
+
+        keywords = (
+            "university",
+            "université",
+            "universite",
+            "school",
+            "école",
+            "ecole",
+            "institute",
+            "institut",
+            "academy",
+            "académie",
+            "academie",
+            "college",
+            "collège",
+            "lycée",
+            "lycee",
+            "formation",
+            "ifocop",
+            "m2i",
+            "mines paris",
+        )
+
+        return any(
+            keyword in normalized
+            for keyword in keywords
+        )

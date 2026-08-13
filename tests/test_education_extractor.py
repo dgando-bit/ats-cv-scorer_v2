@@ -306,3 +306,103 @@ def test_extract_education_multiline_degree():
     assert educations[0].year == "2022"
     assert educations[0].degree == "Master Data Science"
     assert educations[0].institution == "Université Paris-Saclay"
+
+def test_extract_education_institution_before_degree():
+
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=33,
+            y0=100,
+            x1=200,
+            y1=120,
+            text="2029 - 2030",
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=33,
+            y0=130,
+            x1=250,
+            y1=150,
+            text="WARDIERE UNIVERSITY",
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=41,
+            y0=160,
+            x1=250,
+            y1=180,
+            text="Master of Business",
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=41,
+            y0=190,
+            x1=250,
+            y1=210,
+            text="Management",
+        ),
+    ]
+
+    extractor = EducationExtractor()
+
+    educations = extractor.extract(blocks)
+
+    assert len(educations) == 1
+
+    education = educations[0]
+
+    assert education.year == "2029-2030"
+    assert education.institution == "WARDIERE UNIVERSITY"
+    assert education.degree == "Master of Business Management"
+
+def test_extract_education_ignores_gpa():
+
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=33,
+            y0=100,
+            x1=250,
+            y1=140,
+            text=(
+                "2025 - 2029\n"
+                "WARDIERE UNIVERSITY"
+            ),
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=41,
+            y0=150,
+            x1=250,
+            y1=170,
+            text="Bachelor of Business",
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=41,
+            y0=180,
+            x1=250,
+            y1=200,
+            text="GPA: 3.8 / 4.0",
+        ),
+    ]
+
+    extractor = EducationExtractor()
+
+    educations = extractor.extract(blocks)
+
+    assert len(educations) == 1
+
+    education = educations[0]
+
+    assert education.year == "2025-2029"
+    assert education.institution == "WARDIERE UNIVERSITY"
+    assert education.degree == "Bachelor of Business"

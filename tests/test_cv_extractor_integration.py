@@ -154,3 +154,41 @@ def test_extract_real_cv():
 
     assert "Anglais (B2)" in cv.languages
     assert "LSF (C2)" in cv.languages
+
+def test_extract_second_real_cv():
+    extractor = CVExtractor()
+
+    cv = extractor.extract(
+        str(
+            PROJECT_ROOT
+            / "data"
+            / "samples"
+            / "cv_test_1.pdf"
+        )
+    )
+
+    assert cv.candidate_name == "RICHARD SANCHEZ"
+    assert cv.title == "MARKETING MANAGER"
+
+    assert len(cv.experiences) == 3
+
+    assert cv.experiences[0].company == "Borcelle Studio"
+    assert cv.experiences[0].role == "Marketing Manager & Specialist"
+    assert cv.experiences[0].start_date == "2030"
+    assert cv.experiences[0].end_date == "PRESENT"
+
+    assert cv.experiences[1].company == "Fauget Studio"
+    assert cv.experiences[2].company == "Studio Shodwe"
+
+    assert len(cv.education) == 2
+
+    assert cv.education[0].institution == "WARDIERE UNIVERSITY"
+    assert cv.education[0].degree == "Master of Business Management"
+    assert cv.education[0].year == "2029-2030"
+
+    assert cv.education[1].institution == "WARDIERE UNIVERSITY"
+    assert cv.education[1].degree == "Bachelor of Business"
+    assert cv.education[1].year == "2025-2029"
+
+    assert "Project Management" in cv.skills
+    assert "English (Fluent)" in cv.languages
