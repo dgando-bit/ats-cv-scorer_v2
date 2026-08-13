@@ -32,13 +32,6 @@ class ExperienceExtractor:
         "Développeur Back-end",
         "Développeur Informatique",
         "Responsable Informatique",
-        "Data Engineer",
-        "Data Scientist",
-        "Machine Learning Engineer",
-        "Développeur Full-Stack",
-        "Développeur Full Stack",
-        "Développeur Web",
-        "Ingénieur Logiciel",
     ]
 
     # Mots-clés indiquant qu'un segment de texte désigne un
@@ -157,8 +150,8 @@ class ExperienceExtractor:
         )
 
     def _build_experience(
-        self,
-        blocks: list[TextBlock],
+            self,
+            blocks: list[TextBlock],
     ) -> Experience:
         """Build an Experience from a group of related blocks."""
 
@@ -172,7 +165,9 @@ class ExperienceExtractor:
         date_block_index: int | None = None
 
         for index, block in enumerate(blocks):
-            match = self.DATE_RANGE_PATTERN.search(block.text)
+            match = self.DATE_RANGE_PATTERN.search(
+                block.text
+            )
 
             if match:
                 start_date = match.group(1)
@@ -182,18 +177,12 @@ class ExperienceExtractor:
 
         # ---------------------------------------------------------
         # 2. Construire les blocs d'en-tête
-        #
-        # Exemple :
-        #
-        # Airweb - Paragon ID
-        # Développeur Back-end
-        # (2021 - 2025)
-        #
-        # => header = "Airweb - Paragon ID Développeur Back-end"
         # ---------------------------------------------------------
 
         if date_block_index is not None:
-            header_blocks = blocks[: date_block_index + 1]
+            header_blocks = blocks[
+                :date_block_index + 1
+            ]
         else:
             header_blocks = blocks[:1]
 
@@ -204,8 +193,24 @@ class ExperienceExtractor:
         )
 
         # ---------------------------------------------------------
-        # 3. Supprimer les dates de l'en-tête
+        # 3. Analyser la position de la date
         # ---------------------------------------------------------
+
+        date_match = self.DATE_RANGE_PATTERN.search(
+            header
+        )
+
+        before_date = ""
+        after_date = ""
+
+        if date_match:
+            before_date = header[
+                :date_match.start()
+            ].strip()
+
+            after_date = header[
+                date_match.end():
+            ].strip()
 
         header_without_date = (
             self.DATE_RANGE_PATTERN
@@ -217,21 +222,43 @@ class ExperienceExtractor:
         # 4. Extraire rôle + entreprise
         # ---------------------------------------------------------
 
-        role, company = self._extract_role_company(
-            header_without_date
-        )
+        role: str | None = None
+        company: str | None = None
+
+        # Exemple :
+        #
+        # ACME Cloud (2022 - 2025) Cloud Architect
+        if before_date and after_date:
+
+            if self._looks_like_job_title(
+                    after_date
+            ):
+                company = before_date
+                role = after_date
+
+        # Autres formats :
+        #
+        # Cloud Architect ACME Cloud (2022 - 2025)
+        #
+        # IA & Machine Learning Engineer
+        # Liora (2025 - 2026)
+        #
+        # etc.
+        if role is None or company is None:
+            role, company = self._extract_role_company(
+                header_without_date
+            )
 
         # ---------------------------------------------------------
         # 5. Description
-        #
-        # Tout ce qui vient après le bloc contenant les dates
-        # est considéré comme description.
         # ---------------------------------------------------------
 
         description: list[str] = []
 
         if date_block_index is not None:
-            description_blocks = blocks[date_block_index + 1 :]
+            description_blocks = blocks[
+                date_block_index + 1:
+            ]
         else:
             description_blocks = blocks[1:]
 
@@ -380,6 +407,24 @@ class ExperienceExtractor:
             return role, company or None
 
         # ---------------------------------------------------------
+        # 4. Heuristique générique pour les headers mono-ligne
+        #
+        # Exemples :
+        #
+        # Cloud Architect ACME Cloud
+        # ACME Cloud Cloud Architect
+        # Product Owner FinTech Corp
+        # DataVision Analyste BI
+        # ---------------------------------------------------------
+
+        role, company = cls._split_single_line_role_company(
+            header
+        )
+
+        if role and company:
+            return role, company
+
+        # ---------------------------------------------------------
         # 4. Aucun indice exploitable
         # ---------------------------------------------------------
 
@@ -484,3 +529,132 @@ class ExperienceExtractor:
                 ";",
             )
         )
+
+    @classmethod
+    def _split_single_line_role_company(
+            cls,
+            text: str,
+    ) -> tuple[str | None, str | None]:
+        """Try to split a single-line role/company header generically."""
+
+        words = text.split()
+
+        if len(words) < 2:
+            return None, None
+
+        # ---------------------------------------------------------
+        # 1. Rôle avant entreprise
+        #
+        # Cloud Architect ACME Cloud
+        # Product Owner FinTech Corp
+        #
+        # On prend le PREMIER préfixe qui ressemble clairement
+        # à un intitulé de poste.
+        # ---------------------------------------------------------
+
+        for end in range(1, len(words)):
+            role_candidate = " ".join(
+                words[:end]
+            )
+
+            if not cls._looks_like_job_title(
+                    role_candidate
+            ):
+                continue
+
+            company_candidate = " ".join(
+                words[end:]
+            ).strip()
+
+            if company_candidate:
+                return role_candidate, company_candidate
+
+        # ---------------------------------------------------------
+        # 2. Entreprise avant rôle
+        #
+        # DataVision Analyste BI
+        # ACME Cloud Cloud Architect
+        #
+        # Ici on cherche le meilleur suffixe métier.
+        # ---------------------------------------------------------
+
+        candidates: list[
+            tuple[int, int, str, str]
+        ] = []
+
+        for start in range(1, len(words)):
+            company_candidate = " ".join(
+                words[:start]
+            ).strip()
+
+            role_candidate = " ".join(
+                words[start:]
+            )
+
+            if not company_candidate:
+                continue
+
+            if not cls._looks_like_job_title(
+                    role_candidate
+            ):
+                continue
+
+            score = cls._score_job_title(
+                role_candidate
+            )
+
+            candidates.append(
+                (
+                    score,
+                    len(role_candidate.split()),
+                    role_candidate,
+                    company_candidate,
+                )
+            )
+
+        if not candidates:
+            return None, None
+
+        best = max(
+            candidates,
+            key=lambda candidate: (
+                candidate[0],
+                candidate[1],
+            ),
+        )
+
+        _, _, role, company = best
+
+        return role, company
+
+    @classmethod
+    def _score_job_title(
+        cls,
+        text: str,
+    ) -> int:
+        """Score how strongly a piece of text looks like a job title."""
+
+        normalized = text.lower().strip()
+
+        score = 0
+
+        for keyword in cls.JOB_TITLE_KEYWORDS:
+            keyword = keyword.lower()
+
+            if normalized == keyword:
+                score = max(score, 5)
+
+            elif normalized.startswith(
+                keyword + " "
+            ):
+                score = max(score, 4)
+
+            elif normalized.endswith(
+                " " + keyword
+            ):
+                score = max(score, 3)
+
+            elif keyword in normalized:
+                score = max(score, 1)
+
+        return score

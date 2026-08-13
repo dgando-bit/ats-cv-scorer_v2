@@ -500,3 +500,193 @@ def test_merge_fragmented_description_words():
             "(modélisations requêtes, intégrité)"
         )
     ]
+
+def test_extract_generic_cloud_architect():
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=220,
+            y0=100,
+            x1=550,
+            y1=140,
+            text=(
+                "2022 - 2025\n"
+                "ACME Cloud\n"
+                "Cloud Architect"
+            ),
+        ),
+    ]
+
+    extractor = ExperienceExtractor()
+
+    experiences = extractor.extract(blocks)
+
+    assert len(experiences) == 1
+    assert experiences[0].company == "ACME Cloud"
+    assert experiences[0].role == "Cloud Architect"
+
+
+def test_extract_generic_product_owner():
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=220,
+            y0=100,
+            x1=550,
+            y1=140,
+            text=(
+                "2021 - 2024\n"
+                "FinTech Corp\n"
+                "Product Owner"
+            ),
+        ),
+    ]
+
+    extractor = ExperienceExtractor()
+
+    experiences = extractor.extract(blocks)
+
+    assert len(experiences) == 1
+    assert experiences[0].company == "FinTech Corp"
+    assert experiences[0].role == "Product Owner"
+
+
+def test_extract_generic_bi_analyst():
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=220,
+            y0=100,
+            x1=550,
+            y1=140,
+            text=(
+                "2020 - 2023\n"
+                "DataVision\n"
+                "Analyste BI"
+            ),
+        ),
+    ]
+
+    extractor = ExperienceExtractor()
+
+    experiences = extractor.extract(blocks)
+
+    assert len(experiences) == 1
+    assert experiences[0].company == "DataVision"
+    assert experiences[0].role == "Analyste BI"
+
+
+def test_extract_generic_data_platform_lead():
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=220,
+            y0=100,
+            x1=550,
+            y1=140,
+            text=(
+                "2023 - PRESENT\n"
+                "Example Tech\n"
+                "Data Platform Lead"
+            ),
+        ),
+    ]
+
+    extractor = ExperienceExtractor()
+
+    experiences = extractor.extract(blocks)
+
+    assert len(experiences) == 1
+    assert experiences[0].company == "Example Tech"
+    assert experiences[0].role == "Data Platform Lead"
+
+def test_extract_generic_single_line_role_before_company():
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=220,
+            y0=100,
+            x1=550,
+            y1=140,
+            text="Cloud Architect ACME Cloud (2022 - 2025)",
+        ),
+    ]
+
+    extractor = ExperienceExtractor()
+
+    experiences = extractor.extract(blocks)
+
+    assert len(experiences) == 1
+    assert experiences[0].company == "ACME Cloud"
+    assert experiences[0].role == "Cloud Architect"
+
+
+def test_extract_generic_single_line_company_before_role():
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=220,
+            y0=100,
+            x1=550,
+            y1=140,
+            text="ACME Cloud (2022 - 2025) Cloud Architect",
+        ),
+    ]
+
+    extractor = ExperienceExtractor()
+
+    experiences = extractor.extract(blocks)
+
+    assert len(experiences) == 1
+    assert experiences[0].company == "ACME Cloud"
+    assert experiences[0].role == "Cloud Architect"
+
+
+def test_extract_generic_single_line_product_owner():
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=220,
+            y0=100,
+            x1=550,
+            y1=140,
+            text="Product Owner FinTech Corp (2021 - 2024)",
+        ),
+    ]
+
+    extractor = ExperienceExtractor()
+
+    experiences = extractor.extract(blocks)
+
+    assert len(experiences) == 1
+    assert experiences[0].company == "FinTech Corp"
+    assert experiences[0].role == "Product Owner"
+
+
+def test_extract_generic_single_line_bi_analyst():
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=220,
+            y0=100,
+            x1=550,
+            y1=140,
+            text="DataVision (2020 - 2023) Analyste BI",
+        ),
+    ]
+
+    extractor = ExperienceExtractor()
+
+    experiences = extractor.extract(blocks)
+
+    assert len(experiences) == 1
+    assert experiences[0].company == "DataVision"
+    assert experiences[0].role == "Analyste BI"
