@@ -5,7 +5,7 @@ class Contact(BaseModel):
     email: str | None = None
     phone: str | None = None
     location: str | None = None
-
+    website: str | None = None
 
 class Experience(BaseModel):
     company: str | None = None

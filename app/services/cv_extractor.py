@@ -278,11 +278,13 @@ class CVExtractor:
 
         emails = extracted.get("emails", [])
         phones = extracted.get("phones", [])
+        urls = extracted.get("urls", [])
 
         return Contact(
             email=emails[0] if emails else None,
             phone=phones[0] if phones else None,
             location=self._extract_location(text),
+            website=urls[0] if urls else None,
         )
 
     @staticmethod
@@ -296,12 +298,23 @@ class CVExtractor:
 
         for line in lines:
 
-            # Une ligne qui n'est ni téléphone ni email
-            # peut correspondre à une localisation.
-            if "@" not in line and not any(
-                    char.isdigit() for char in line
+            # Email
+            if "@" in line:
+                continue
+
+            # URL / site web
+            if (
+                    line.lower().startswith("http://")
+                    or line.lower().startswith("https://")
+                    or line.lower().startswith("www.")
             ):
-                return line
+                continue
+
+            # Téléphone / lignes numériques
+            if any(char.isdigit() for char in line):
+                continue
+
+            return line
 
         return None
 
