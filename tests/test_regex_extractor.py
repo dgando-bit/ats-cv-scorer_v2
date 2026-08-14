@@ -46,3 +46,16 @@ def test_extract_multiple_fields():
     assert result["phones"] == [
         "+33 6 70 50 41 98"
     ]
+
+def test_extract_us_phone_number():
+    text = (
+        "hello@reallygreatsite.com | "
+        "123-456-7890 | "
+        "123 Anywhere St., Any City"
+    )
+
+    extractor = RegexExtractor()
+
+    result = extractor.extract(text)
+
+    assert "123-456-7890" in result["phones"]

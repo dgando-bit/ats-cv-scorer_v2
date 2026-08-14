@@ -37,9 +37,19 @@ class CVExtractor:
         title = self._extract_title(blocks)
 
         # 4. Contact
-        contact_text = self._blocks_to_text(
-            sections.get("contact", [])
+        contact_blocks = sections.get(
+            "contact",
+            []
         )
+
+        if contact_blocks:
+            contact_text = self._blocks_to_text(
+                contact_blocks
+            )
+        else:
+            contact_text = self._extract_top_contact_text(
+                blocks
+            )
 
         contact = self._extract_contact(
             contact_text
@@ -105,11 +115,20 @@ class CVExtractor:
     def _sections_to_dict(
             detected_sections: list[DetectedSection],
     ) -> dict[str, list[TextBlock]]:
+        """Merge blocks belonging to sections with the same name."""
 
-        return {
-            section.name: section.blocks
-            for section in detected_sections
-        }
+        sections: dict[str, list[TextBlock]] = {}
+
+        for section in detected_sections:
+
+            if section.name not in sections:
+                sections[section.name] = []
+
+            sections[section.name].extend(
+                section.blocks
+            )
+
+        return sections
 
     @staticmethod
     def _blocks_to_text(
@@ -285,34 +304,89 @@ class CVExtractor:
             website=urls[0] if urls else None,
         )
 
-    @staticmethod
-    def _extract_location(text: str) -> str | None:
+    def _extract_location(
+            self,
+            text: str,
+    ) -> str | None:
 
-        lines = [
-            line.strip()
-            for line in text.splitlines()
-            if line.strip()
+        # ---------------------------------------------------------
+        # 1. Découper les différents éléments de contact.
+        #
+        # On utilise à la fois :
+        # - les retours à la ligne
+        # - le séparateur |
+        # ---------------------------------------------------------
+
+        parts = [
+            part.strip()
+            for part in re.split(r"[|\n]", text)
+            if part.strip()
         ]
 
-        for line in lines:
+        location_parts: list[str] = []
+
+        for part in parts:
 
             # Email
-            if "@" in line:
+            if "@" in part:
                 continue
 
-            # URL / site web
+            # URL
+            lower = part.lower()
+
             if (
-                    line.lower().startswith("http://")
-                    or line.lower().startswith("https://")
-                    or line.lower().startswith("www.")
+                    lower.startswith("http://")
+                    or lower.startswith("https://")
+                    or lower.startswith("www.")
             ):
                 continue
 
-            # Téléphone / lignes numériques
-            if any(char.isdigit() for char in line):
+            # Téléphone
+            extracted = self.regex_extractor.extract(part)
+            phones = extracted.get("phones", [])
+
+            if phones:
+                normalized_part = self._normalize_phone(part)
+
+                if any(
+                        self._normalize_phone(phone) == normalized_part
+                        for phone in phones
+                ):
+                    continue
+
+            # -----------------------------------------------------
+            # Fragment numérique seul :
+            #
+            # 123
+            # Anywhere St., Any City
+            #
+            # On attend le fragment suivant pour reconstruire
+            # l'adresse.
+            # -----------------------------------------------------
+
+            if part.isdigit():
+                location_parts.append(part)
                 continue
 
-            return line
+            # Si on avait déjà un numéro de rue,
+            # on reconstruit l'adresse complète.
+            if location_parts:
+                location_parts.append(part)
+
+                return " ".join(
+                    location_parts
+                )
+
+            # Localisation classique :
+            #
+            # Paris, France
+            # Thiais, France
+            # -----------------------------------------------------
+
+            return part
+
+        if location_parts:
+            return " ".join(location_parts)
 
         return None
 
@@ -376,3 +450,73 @@ class CVExtractor:
             items.extend(parts)
 
         return items
+
+    def _extract_top_contact_text(
+            self,
+            blocks: list[TextBlock],
+    ) -> str:
+        """
+        Extract likely contact information from the top area
+        of the first page when no CONTACT section exists.
+        """
+
+        if not blocks:
+            return ""
+
+        first_page_blocks = [
+            block
+            for block in blocks
+            if block.page == 1
+        ]
+
+        if not first_page_blocks:
+            return ""
+
+        top_limit = 180
+
+        candidates: list[TextBlock] = []
+
+        for block in first_page_blocks:
+
+            if block.y0 > top_limit:
+                continue
+
+            text = block.text.strip()
+
+            if not text:
+                continue
+
+            extracted = self.regex_extractor.extract(text)
+
+            has_email = bool(
+                extracted.get("emails", [])
+            )
+
+            has_phone = bool(
+                extracted.get("phones", [])
+            )
+
+            has_url = bool(
+                extracted.get("urls", [])
+            )
+
+            if (
+                    has_email
+                    or has_phone
+                    or has_url
+            ):
+                candidates.append(block)
+
+        candidates = sorted(
+            candidates,
+            key=lambda block: block.y0,
+        )
+
+        return "\n".join(
+            block.text
+            for block in candidates
+        )
+
+    @staticmethod
+    def _normalize_phone(value: str) -> str:
+        return re.sub(r"\D", "", value)

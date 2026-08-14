@@ -690,3 +690,71 @@ def test_extract_generic_single_line_bi_analyst():
     assert len(experiences) == 1
     assert experiences[0].company == "DataVision"
     assert experiences[0].role == "Analyste BI"
+
+def test_extract_experience_with_month_dates():
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=35,
+            y0=100,
+            x1=550,
+            y1=130,
+            text=(
+                "Oct 2023 - Present\n"
+                "Administrative Assistant, Arowwai Industries"
+            ),
+        ),
+    ]
+
+    extractor = ExperienceExtractor()
+    experiences = extractor.extract(blocks)
+
+    assert len(experiences) == 1
+    assert experiences[0].start_date == "Oct 2023"
+    assert experiences[0].end_date == "Present"
+    assert experiences[0].role == "Administrative Assistant"
+    assert experiences[0].company == "Arowwai Industries"
+
+def test_extract_multiple_experiences_with_month_dates():
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=35,
+            y0=100,
+            x1=550,
+            y1=130,
+            text=(
+                "Jan 2022 - Sept 2023\n"
+                "Office Coordinator, Borcelle"
+            ),
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=35,
+            y0=160,
+            x1=550,
+            y1=190,
+            text=(
+                "Apr 2021 - Dec 2021\n"
+                "Internship, Salford & Co Corporation"
+            ),
+        ),
+    ]
+
+    extractor = ExperienceExtractor()
+    experiences = extractor.extract(blocks)
+
+    assert len(experiences) == 2
+
+    assert experiences[0].start_date == "Jan 2022"
+    assert experiences[0].end_date == "Sept 2023"
+    assert experiences[0].role == "Office Coordinator"
+    assert experiences[0].company == "Borcelle"
+
+    assert experiences[1].start_date == "Apr 2021"
+    assert experiences[1].end_date == "Dec 2021"
+    assert experiences[1].role == "Internship"
+    assert experiences[1].company == "Salford & Co Corporation"

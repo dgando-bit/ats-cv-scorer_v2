@@ -8,7 +8,18 @@ class EducationExtractor:
     """Extract education entries from CV text blocks."""
 
     YEAR_RANGE_PATTERN = re.compile(
-        r"\b((?:19|20)\d{2})\s*[-–—]\s*((?:19|20)\d{2})\b"
+        r"\b("
+        r"(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)"
+        r"[a-z]*\s+)?"
+        r"(?:19|20)\d{2}"
+        r")"
+        r"\s*[-–—]\s*"
+        r"("
+        r"(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)"
+        r"[a-z]*\s+)?"
+        r"(?:19|20)\d{2}"
+        r")\b",
+        re.IGNORECASE,
     )
 
     YEAR_PATTERN = re.compile(
@@ -576,21 +587,12 @@ class EducationExtractor:
         return None
 
     @staticmethod
-    def _looks_like_metadata(
-            text: str,
-    ) -> bool:
-        """Return True for education metadata that is not degree/institution."""
-
+    def _looks_like_metadata(text: str) -> bool:
         return bool(
             re.search(
-                r"""
-                ^\s*GPA\s*:
-                |^\s*moyenne\s*:
-                |^\s*mention\s*:
-                |^\s*grade\s*:
-                """,
+                r"\b(?:c?gpa|moyenne|mention)\b",
                 text,
-                flags=re.IGNORECASE | re.VERBOSE,
+                flags=re.IGNORECASE,
             )
         )
 

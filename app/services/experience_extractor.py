@@ -9,9 +9,20 @@ class ExperienceExtractor:
 
     DATE_RANGE_PATTERN = re.compile(
         r"\(?\s*"
-        r"(\d{4})"
+        r"("
+        r"(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)"
+        r"[a-z]*\s+)?"
+        r"\d{4}"
+        r")"
         r"\s*[-–—]\s*"
-        r"(\d{4}|présent|present|aujourd'hui)"
+        r"("
+        r"(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)"
+        r"[a-z]*\s+)?"
+        r"\d{4}"
+        r"|présent"
+        r"|present"
+        r"|aujourd'hui"
+        r")"
         r"\s*\)?",
         re.IGNORECASE,
     )
@@ -315,6 +326,27 @@ class ExperienceExtractor:
 
             if role and company:
                 return role, company
+
+        # ---------------------------------------------------------
+        # 2. Séparateur explicite par virgule
+        #
+        # Administrative Assistant, Arowwai Industries
+        # Office Coordinator, Borcelle
+        # Internship, Salford & Co Corporation
+        # ---------------------------------------------------------
+
+        if "," in header:
+
+            role_part, company_part = header.split(
+                ",",
+                maxsplit=1,
+            )
+
+            role_part = role_part.strip()
+            company_part = company_part.strip()
+
+            if role_part and company_part:
+                return role_part, company_part
 
         # ---------------------------------------------------------
         # 2. Header multi-lignes

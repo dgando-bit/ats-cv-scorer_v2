@@ -9,10 +9,21 @@ class RegexExtractor:
     )
 
     PHONE_PATTERN = re.compile(
-        r"(?<!\d)"
-        r"(?:\+33\s?[1-9](?:[\s.-]?\d{2}){4}"
-        r"|0[1-9](?:[\s.-]?\d{2}){4})"
-        r"(?!\d)"
+        r"""
+        (?<!\w)
+        (
+            # Format international / français
+            \+?\d{1,3}
+            (?:[\s.\-]\d{1,4}){3,5}
+
+            |
+
+            # Format US classique
+            \d{3}-\d{3}-\d{4}
+        )
+        (?!\w)
+        """,
+        re.VERBOSE,
     )
 
     DATE_RANGE_PATTERN = re.compile(

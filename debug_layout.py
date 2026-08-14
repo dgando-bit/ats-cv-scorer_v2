@@ -18,7 +18,7 @@
 #     )
 import pymupdf
 
-PDF_PATH = "data/samples/cv_test.pdf"
+PDF_PATH = "data/samples/cv_test_2.pdf"
 
 with pymupdf.open(PDF_PATH) as document:
     page = document[0]

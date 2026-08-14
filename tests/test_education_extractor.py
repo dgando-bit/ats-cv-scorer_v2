@@ -565,3 +565,78 @@ def test_extract_institution_with_numeric_name():
     assert educations[0].institution == "42 Paris"
     assert educations[0].degree == "Développement logiciel"
     assert educations[0].year == "2020-2022"
+
+def test_extract_education_with_month_dates():
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=35,
+            y0=100,
+            x1=250,
+            y1=130,
+            text=(
+                "Jan 2019 - Feb 2021\n"
+                "Bachelor of Business Administration"
+            ),
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=35,
+            y0=140,
+            x1=250,
+            y1=160,
+            text="University of Business Excellence",
+        ),
+    ]
+
+    extractor = EducationExtractor()
+    educations = extractor.extract(blocks)
+
+    assert len(educations) == 1
+    assert educations[0].year == "Jan 2019-Feb 2021"
+    assert educations[0].degree == "Bachelor of Business Administration"
+    assert educations[0].institution == "University of Business Excellence"
+
+def test_extract_education_ignores_cgpa():
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=35,
+            y0=100,
+            x1=250,
+            y1=130,
+            text=(
+                "Jan 2019 - Feb 2021\n"
+                "Bachelor of Business Administration"
+            ),
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=35,
+            y0=140,
+            x1=250,
+            y1=160,
+            text="University of Business Excellence",
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=35,
+            y0=170,
+            x1=250,
+            y1=190,
+            text="Final CGPA: 3.90",
+        ),
+    ]
+
+    extractor = EducationExtractor()
+    educations = extractor.extract(blocks)
+
+    assert len(educations) == 1
+    assert educations[0].degree == "Bachelor of Business Administration"
+    assert educations[0].institution == "University of Business Excellence"
+    assert educations[0].year == "Jan 2019-Feb 2021"
