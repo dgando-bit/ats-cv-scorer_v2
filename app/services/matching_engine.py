@@ -38,9 +38,14 @@ class MatchingEngine:
             job: JobOffer,
     ) -> MatchResult:
 
+        cv_technical_terms = (
+                cv.skills
+                + cv.tools
+        )
+
         skills_score, matched_skills, missing_skills = (
             self._match_terms(
-                cv.skills,
+                cv_technical_terms,
                 job.skills,
             )
         )

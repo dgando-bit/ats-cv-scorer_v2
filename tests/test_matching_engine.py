@@ -282,3 +282,39 @@ def test_match_result_model():
     assert result.score == 82.5
     assert result.details.skills == 80
     assert result.missing_skills == ["spark"]
+
+def test_matching_skills_can_be_found_in_cv_tools():
+
+    cv = CV(
+        candidate_name="John Doe",
+        title="Machine Learning Engineer",
+        contact=Contact(),
+        profile="",
+        experiences=[],
+        education=[],
+        skills=[],
+        soft_skills=[],
+        tools=[
+            "Python",
+            "SQL",
+        ],
+        languages=[],
+    )
+
+    job = JobOffer(
+        title="Machine Learning Engineer",
+        description="",
+        skills=[
+            "Python",
+            "SQL",
+        ],
+    )
+
+    result = MatchingEngine().match(
+        cv,
+        job,
+    )
+
+    assert result.details.skills == 100.0
+    assert "python" in result.matched_skills
+    assert "sql" in result.matched_skills
