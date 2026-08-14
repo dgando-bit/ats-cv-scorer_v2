@@ -26,6 +26,7 @@ class SectionDetector:
             "experience",
             "work experience",
             "professional experience",
+            "career history",
         },
         "skills": {
             "compétences",
@@ -34,6 +35,7 @@ class SectionDetector:
             "skills",
             "technical skills",
             "core skills",
+            "core competencies",
         },
         "education": {
             "formation",
@@ -60,6 +62,7 @@ class SectionDetector:
             "outils",
             "tools",
             "technologies",
+            "tech stack",
         },
         "references": {
             "reference",

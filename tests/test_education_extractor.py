@@ -406,3 +406,162 @@ def test_extract_education_ignores_gpa():
     assert education.year == "2025-2029"
     assert education.institution == "WARDIERE UNIVERSITY"
     assert education.degree == "Bachelor of Business"
+
+def test_extract_unknown_university():
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=100,
+            x1=500,
+            y1=120,
+            text="2023 - 2025",
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=130,
+            x1=500,
+            y1=150,
+            text="Stanford University",
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=160,
+            x1=500,
+            y1=180,
+            text="Master of Science in Artificial Intelligence",
+        ),
+    ]
+
+    extractor = EducationExtractor()
+    educations = extractor.extract(blocks)
+
+    assert len(educations) == 1
+    assert educations[0].year == "2023-2025"
+    assert educations[0].institution == "Stanford University"
+    assert educations[0].degree == "Master of Science in Artificial Intelligence"
+
+
+def test_extract_unknown_school_without_university_keyword():
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=100,
+            x1=500,
+            y1=120,
+            text="2021 - 2023",
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=130,
+            x1=500,
+            y1=150,
+            text="General Assembly",
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=160,
+            x1=500,
+            y1=180,
+            text="Data Science Program",
+        ),
+    ]
+
+    extractor = EducationExtractor()
+    educations = extractor.extract(blocks)
+
+    assert len(educations) == 1
+    assert educations[0].institution == "General Assembly"
+    assert educations[0].degree == "Data Science Program"
+    assert educations[0].year == "2021-2023"
+
+
+def test_extract_certification():
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=100,
+            x1=500,
+            y1=120,
+            text="2024",
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=130,
+            x1=500,
+            y1=150,
+            text="Cloud Academy",
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=160,
+            x1=500,
+            y1=180,
+            text="Certification Data Engineer",
+        ),
+    ]
+
+    extractor = EducationExtractor()
+    educations = extractor.extract(blocks)
+
+    assert len(educations) == 1
+    assert educations[0].institution == "Cloud Academy"
+    assert educations[0].degree == "Certification Data Engineer"
+    assert educations[0].year == "2024"
+
+
+def test_extract_institution_with_numeric_name():
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=100,
+            x1=500,
+            y1=120,
+            text="2020 - 2022",
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=130,
+            x1=500,
+            y1=150,
+            text="42 Paris",
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=200,
+            y0=160,
+            x1=500,
+            y1=180,
+            text="Développement logiciel",
+        ),
+    ]
+
+    extractor = EducationExtractor()
+    educations = extractor.extract(blocks)
+
+    assert len(educations) == 1
+    assert educations[0].institution == "42 Paris"
+    assert educations[0].degree == "Développement logiciel"
+    assert educations[0].year == "2020-2022"

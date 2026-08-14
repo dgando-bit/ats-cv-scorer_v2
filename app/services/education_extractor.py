@@ -259,7 +259,40 @@ class EducationExtractor:
             return degree, institution
 
         # ---------------------------------------------------------
-        # 5. Ancien format :
+        # 5. Inférence générique sur deux lignes
+        # ---------------------------------------------------------
+
+        if len(content_lines) == 2:
+
+            first = content_lines[0]
+            second = content_lines[1]
+
+            if (
+                not self._looks_like_degree(first)
+                and self._looks_like_degree(second)
+            ):
+                return (
+                    self._clean_degree(second),
+                    self._clean_institution(first),
+                )
+
+            if (
+                self._looks_like_degree(first)
+                and not self._looks_like_degree(second)
+            ):
+                return (
+                    self._clean_degree(first),
+                    self._clean_institution(second),
+                )
+
+            if self._looks_like_numeric_institution(first):
+                return (
+                    self._clean_degree(second),
+                    self._clean_institution(first),
+                )
+
+        # ---------------------------------------------------------
+        # 6. Ancien format :
         #
         # diplôme
         # établissement
@@ -289,7 +322,7 @@ class EducationExtractor:
                 return degree, institution
 
         # ---------------------------------------------------------
-        # 6. Une seule ligne
+        # 7. Une seule ligne
         # ---------------------------------------------------------
 
         single_line = content_lines[0]
@@ -462,22 +495,22 @@ class EducationExtractor:
     # =============================================================
 
     @staticmethod
-    def _looks_like_degree(
-        text: str,
-    ) -> bool:
-
+    def _looks_like_degree(text: str) -> bool:
         return bool(
             re.search(
                 r"""
-                niveau\s+\d+
-                |BAC\+\d+
-                |\bBTS\b
+                \bmaster\b
+                |\bbachelor\b
                 |\blicence\b
-                |\bmaster\b
-                |\bdoctorat\b
-                |\bMBA\b
-                |ingénieur
-                |diplôme
+                |\bbts\b
+                |\bdut\b
+                |\bbut\b
+                |\bdegree\b
+                |\bdipl[oô]me\b
+                |\bing[eé]nieur\b
+                |\bcertification\b
+                |\bprogramme?\b
+                |\bprogram\b
                 """,
                 text,
                 flags=re.IGNORECASE | re.VERBOSE,
@@ -594,4 +627,14 @@ class EducationExtractor:
         return any(
             keyword in normalized
             for keyword in keywords
+        )
+
+    @staticmethod
+    def _looks_like_numeric_institution(
+            text: str,
+    ) -> bool:
+        """Detect institution names containing a meaningful number."""
+
+        return bool(
+            re.search(r"\d", text)
         )
