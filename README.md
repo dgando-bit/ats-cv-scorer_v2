@@ -58,3 +58,18 @@ SectionExtractor
              ▼
         ATS Scoring
 ```
+## job-matching assistant
+### Parcours utilisateur
+```
+Upload CV
+   ↓
+Extraction du profil
+   ↓
+Recherche d'offres
+   ↓
+Sélection d'une offre
+   ↓
+Matching CV ↔ offre
+   ↓
+Score + compétences manquantes + recommandations
+```
