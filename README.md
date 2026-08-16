@@ -3,30 +3,58 @@
 ## Arborescence du projet
 ```
 ats-cv-scorer_v2/
-│
-├── app/
-│   ├── models/
-│   │   ├── __init__.py
-│   │   └── cv.py
+├── backend/
+│   ├── app/
+│   │   ├── api/
+│   │   │   └── routes/
+│   │   │       ├── analyze.py
+│   │   │       ├── cv.py
+│   │   │       ├── job.py
+│   │   │       └── match.py
+│   │   │
+│   │   ├── models/
+│   │   │   ├── cv.py
+│   │   │   ├── job.py
+│   │   │   └── match.py
+│   │   │
+│   │   ├── services/
+│   │   │   ├── cv/
+│   │   │   │   ├── cv_extractor.py
+│   │   │   │   ├── document_parser.py
+│   │   │   │   ├── layout_extractor.py
+│   │   │   │   ├── section_detector.py
+│   │   │   │   ├── regex_extractor.py
+│   │   │   │   ├── experience_extractor.py
+│   │   │   │   └── education_extractor.py
+│   │   │   │
+│   │   │   ├── jobs/
+│   │   │   │   ├── job_offer_extractor.py
+│   │   │   │   └── providers/
+│   │   │   │       ├── base.py
+│   │   │   │       └── france_travail.py
+│   │   │   │
+│   │   │   └── matching/
+│   │   │       ├── matching_engine.py
+│   │   │       └── skill_normalizer.py
+│   │   │
+│   │   └── main.py
 │   │
-│   └── services/
-│       ├── document_parser.py
-│       ├── layout_extractor.py
-│       ├── section_extractor.py
-│       └── experience_extractor.py
+│   ├── tests/
+│   ├── data/
+│   │   └── samples/
+│   ├── scripts/
+│   ├── Dockerfile
+│   ├── pyproject.toml
+│   └── uv.lock
 │
-├── tests/
-│   ├── test_cv_models.py
-│   ├── test_document_parser.py
-│   └── test_health.py
+├── frontend/
+│   └── ...
 │
-├── scripts/
-│
-├── data/
-│   └── samples/
-│
-├── pyproject.toml
-└── uv.lock
+├── docker-compose.yml
+├── .env
+├── .env.example
+├── .gitignore
+└── README.md
 ```
 
 ## Pipeline
