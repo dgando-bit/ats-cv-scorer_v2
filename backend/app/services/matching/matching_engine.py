@@ -5,7 +5,9 @@ from app.models.cv import CV
 from app.models.job import JobOffer
 from app.models.match import MatchDetails, MatchResult
 from app.services.matching.skill_normalizer import SkillNormalizer
-
+from app.services.matching.candidate_knowledge_extractor import (
+    CandidateKnowledgeExtractor,
+)
 
 class MatchingEngine:
 
@@ -34,6 +36,11 @@ class MatchingEngine:
         "bac +8": 8,
     }
 
+    def __init__(self):
+        self.candidate_knowledge_extractor = (
+            CandidateKnowledgeExtractor()
+        )
+
     def match(
         self,
         cv: CV,
@@ -47,10 +54,11 @@ class MatchingEngine:
         # dans cv.skills ou cv.tools.
         # ---------------------------------------------------------
 
-        cv_technical_terms = (
-            cv.skills
-            + cv.tools
+        candidate_knowledge = (
+            self.candidate_knowledge_extractor.extract(cv)
         )
+
+        cv_technical_terms = candidate_knowledge.terms
 
         (
             skills_score,
@@ -70,7 +78,7 @@ class MatchingEngine:
             matched_tools,
             missing_tools,
         ) = self._match_terms(
-            cv.tools,
+            cv_technical_terms,
             job.tools,
         )
 

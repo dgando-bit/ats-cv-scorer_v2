@@ -361,3 +361,50 @@ def test_empty_job_categories_do_not_inflate_score():
         "anglais",
         "français",
     }
+
+def test_matching_engine_uses_candidate_knowledge_from_experience():
+
+    cv = CV(
+        candidate_name="John Doe",
+        title="Machine Learning Engineer",
+        contact=Contact(),
+        profile="",
+        experiences=[
+            Experience(
+                company="ACME",
+                role="ML Engineer",
+                start_date="2022",
+                end_date="2025",
+                description=[
+                    "Data Engineering avec Python.",
+                    "Computer Vision et Data Science.",
+                ],
+            ),
+        ],
+        education=[],
+        skills=[],
+        soft_skills=[],
+        tools=[],
+        languages=[],
+    )
+
+    job = JobOffer(
+        title="AI Engineer",
+        description="",
+        skills=[
+            "Data Engineering",
+            "Computer Vision",
+            "Data Science",
+        ],
+    )
+
+    result = MatchingEngine().match(
+        cv,
+        job,
+    )
+
+    assert result.details.skills == 100.0
+
+    assert "data engineering" in result.matched_skills
+    assert "computer vision" in result.matched_skills
+    assert "data science" in result.matched_skills

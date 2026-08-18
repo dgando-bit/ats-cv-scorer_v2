@@ -48,3 +48,30 @@ def test_normalize_many_removes_duplicates():
         "scikit-learn",
         "postgresql",
     ]
+
+def test_extract_known_terms_from_composite_skill():
+
+    result = SkillNormalizer.extract_known_terms(
+        "Modélisation ML (Scikit-learn)"
+    )
+
+    assert "machine learning" in result
+    assert "scikit-learn" in result
+
+def test_extract_multiple_tools_from_same_value():
+
+    result = SkillNormalizer.extract_known_terms(
+        "GCP / AWS"
+    )
+
+    assert "gcp" in result
+    assert "aws" in result
+
+def test_extract_tools_inside_parentheses():
+
+    result = SkillNormalizer.extract_known_terms(
+        "PyTorch (ou TensorFlow)"
+    )
+
+    assert "pytorch" in result
+    assert "tensorflow" in result
