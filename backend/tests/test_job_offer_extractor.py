@@ -1,3 +1,4 @@
+import pytest
 from app.services.jobs.job_offer_extractor import (
     JobOfferExtractor,
 )
@@ -60,3 +61,61 @@ def test_extract_job_offer_without_requirements():
     assert job.languages == []
     assert job.experience_required is None
     assert job.education_required is None
+
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        (
+            "Minimum 5 ans d'expérience en IA / ML / MLOps.",
+            "5 ans",
+        ),
+        (
+            "2+ ans d'expérience en IA / ML.",
+            "2+ ans",
+        ),
+        (
+            "Au moins 3 ans d'expérience en Data Science.",
+            "3 ans",
+        ),
+        (
+            "Vous justifiez de 4 années d'expérience.",
+            "4 ans",
+        ),
+        (
+            "Une expérience de 3 ans en Machine Learning est requise.",
+            "3 ans",
+        ),
+        (
+            "Expérience professionnelle : 5 ans.",
+            "5 ans",
+        ),
+    ],
+)
+def test_extract_experience_requirement(
+    text,
+    expected,
+):
+    extractor = JobOfferExtractor()
+
+    job = extractor.extract(
+        text=text,
+        title="AI Engineer",
+    )
+
+    assert job.experience_required == expected
+
+def test_no_experience_requirement():
+
+    extractor = JobOfferExtractor()
+
+    job = extractor.extract(
+        text=(
+            "Nous recherchons un Machine Learning Engineer. "
+            "Python et Docker sont utilisés."
+        ),
+        title="Machine Learning Engineer",
+    )
+
+    assert job.experience_required is None

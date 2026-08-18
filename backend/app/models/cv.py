@@ -19,6 +19,7 @@ class Education(BaseModel):
     institution: str | None = None
     degree: str | None = None
     year: str | None = None
+    level: str | None = None
 
 
 class CV(BaseModel):

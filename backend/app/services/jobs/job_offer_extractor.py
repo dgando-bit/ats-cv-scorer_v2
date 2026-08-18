@@ -91,7 +91,7 @@ class JobOfferExtractor:
         )
 
         experience_required = (
-            self._extract_experience(text)
+            self._extract_experience_requirement(text)
         )
 
         education_required = (
@@ -183,3 +183,53 @@ class JobOfferExtractor:
                 for match in matches
             )
         )
+
+    @staticmethod
+    def _extract_experience_requirement(
+            text: str,
+    ) -> str | None:
+
+        patterns = [
+            # "2+ ans d'expérience"
+            r"\b(\d+)\s*\+\s*ans?\s+d['’]expérience\b",
+
+            # "minimum 5 ans d'expérience"
+            # "au moins 3 ans d'expérience"
+            r"\b(?:minimum|au\s+moins)\s+(\d+)\s+ans?"
+            r"\s+d['’]expérience\b",
+
+            # "5 ans d'expérience"
+            r"\b(\d+)\s+ans?\s+d['’]expérience\b",
+
+            # "4 années d'expérience"
+            r"\b(\d+)\s+années?\s+d['’]expérience\b",
+
+            # "expérience de 3 ans"
+            r"\bexpérience\s+(?:professionnelle\s+)?de\s+"
+            r"(\d+)\s+ans?\b",
+
+            # "Expérience professionnelle : 5 ans"
+            r"\bexpérience\s+professionnelle\s*:\s*"
+            r"(\d+)\s+ans?\b",
+        ]
+
+        for index, pattern in enumerate(patterns):
+
+            match = re.search(
+                pattern,
+                text,
+                flags=re.IGNORECASE,
+            )
+
+            if not match:
+                continue
+
+            years = match.group(1)
+
+            # On conserve le "+" pour une exigence du type "2+ ans".
+            if index == 0:
+                return f"{years}+ ans"
+
+            return f"{years} ans"
+
+        return None

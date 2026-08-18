@@ -280,6 +280,50 @@ def test_extract_engineering_degree():
     assert educations[0].degree == "Diplôme d'ingénieur informatique"
     assert educations[0].institution == "INSA Lyon"
 
+def test_extract_education_level():
+
+    blocks = [
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=35,
+            y0=100,
+            x1=300,
+            y1=130,
+            text=(
+                "2025-2026 : « Expert en Ingénierie de l’IA » "
+                "– Niveau 7 (BAC+5)"
+            ),
+        ),
+        TextBlock(
+            page=1,
+            page_width=595,
+            x0=35,
+            y0=140,
+            x1=300,
+            y1=160,
+            text="Mines Paris – PSL Executive Education",
+        ),
+    ]
+
+    educations = EducationExtractor().extract(
+        blocks
+    )
+
+    assert len(educations) == 1
+
+    education = educations[0]
+
+    assert education.degree == (
+        "Expert en Ingénierie de l’IA"
+    )
+
+    assert education.year == "2025-2026"
+
+    assert education.level == (
+        "Niveau 7 (BAC+5)"
+    )
+
 
 def test_extract_education_multiline_degree():
     blocks = [

@@ -8,6 +8,9 @@ from app.services.matching.skill_normalizer import SkillNormalizer
 from app.services.matching.candidate_knowledge_extractor import (
     CandidateKnowledgeExtractor,
 )
+from app.services.matching.relevant_experience_calculator import (
+    RelevantExperienceCalculator,
+)
 
 class MatchingEngine:
 
@@ -20,25 +23,35 @@ class MatchingEngine:
     }
 
     EDUCATION_LEVELS = {
-        "bts": 2,
-        "bac+2": 2,
-        "bac +2": 2,
-        "bachelor": 3,
-        "licence": 3,
-        "bac+3": 3,
-        "bac +3": 3,
-        "master": 5,
-        "bac+5": 5,
-        "bac +5": 5,
+        "bts": 5,
+        "bac+2": 5,
+        "bac +2": 5,
+
+        "bachelor": 6,
+        "licence": 6,
+        "bac+3": 6,
+        "bac +3": 6,
+        "niveau 6": 6,
+
+        "master": 7,
+        "bac+5": 7,
+        "bac +5": 7,
+        "niveau 7": 7,
+
         "doctorat": 8,
         "phd": 8,
         "bac+8": 8,
         "bac +8": 8,
+        "niveau 8": 8,
     }
 
     def __init__(self):
         self.candidate_knowledge_extractor = (
             CandidateKnowledgeExtractor()
+        )
+
+        self.relevant_experience_calculator = (
+            RelevantExperienceCalculator()
         )
 
     def match(
@@ -100,8 +113,12 @@ class MatchingEngine:
         # ---------------------------------------------------------
 
         experience_score = self._score_experience(
-            cv,
-            job.experience_required,
+            cv=cv,
+            requirement=job.experience_required,
+            required_terms=(
+                    job.skills
+                    + job.tools
+            ),
         )
 
         # ---------------------------------------------------------
@@ -328,36 +345,48 @@ class MatchingEngine:
 
         return total_months / 12
 
-    @classmethod
     def _score_experience(
-        cls,
-        cv: CV,
-        requirement: str | None,
+            self,
+            cv: CV,
+            requirement: str | None,
+            required_terms: list[str],
     ) -> float:
 
         required_years = (
-            cls._extract_required_experience(
+            self._extract_required_experience(
                 requirement
             )
         )
 
-        # Pas d'exigence :
-        # catégorie non applicable.
         if required_years is None:
             return 0.0
 
         if required_years <= 0:
             return 0.0
 
-        cv_years = (
-            cls._calculate_cv_experience_years(
-                cv
+        # Si l'offre fournit des compétences ou technologies,
+        # on mesure l'expérience pertinente par rapport à celles-ci.
+        if required_terms:
+
+            experience_years = (
+                self.relevant_experience_calculator.calculate(
+                    cv=cv,
+                    required_terms=required_terms,
+                )
             )
-        )
+
+        # Si l'offre indique seulement un nombre d'années sans
+        # préciser de domaine, on utilise l'expérience totale.
+        else:
+
+            experience_years = (
+                self._calculate_cv_experience_years(
+                    cv
+                )
+            )
 
         return min(
-            cv_years
-            / required_years,
+            experience_years / required_years,
             1.0,
         )
 
@@ -387,8 +416,8 @@ class MatchingEngine:
 
     @classmethod
     def _get_cv_education_level(
-        cls,
-        cv: CV,
+            cls,
+            cv: CV,
     ) -> int | None:
 
         levels: list[int] = []
@@ -399,15 +428,14 @@ class MatchingEngine:
                 part
                 for part in (
                     education.degree,
+                    education.level,
                     education.institution,
                 )
                 if part
             )
 
-            level = (
-                cls._extract_education_level(
-                    text
-                )
+            level = cls._extract_education_level(
+                text
             )
 
             if level is not None:
@@ -420,9 +448,9 @@ class MatchingEngine:
 
     @classmethod
     def _score_education(
-        cls,
-        cv: CV,
-        requirement: str | None,
+            cls,
+            cv: CV,
+            requirement: str | None,
     ) -> float:
 
         required_level = (
@@ -431,8 +459,6 @@ class MatchingEngine:
             )
         )
 
-        # Pas d'exigence :
-        # catégorie non applicable.
         if required_level is None:
             return 0.0
 
@@ -445,8 +471,15 @@ class MatchingEngine:
         if cv_level is None:
             return 0.0
 
-        return min(
-            cv_level
-            / required_level,
-            1.0,
-        )
+        if cv_level >= required_level:
+            return 1.0
+
+        gap = required_level - cv_level
+
+        if gap == 1:
+            return 0.70
+
+        if gap == 2:
+            return 0.40
+
+        return 0.20

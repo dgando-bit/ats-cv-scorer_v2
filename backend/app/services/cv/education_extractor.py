@@ -88,6 +88,14 @@ class EducationExtractor:
                 education_lines.append(next_line)
                 i += 1
 
+            full_education_text = " ".join(
+                education_lines
+            )
+
+            level = self._extract_education_level(
+                full_education_text
+            )
+
             degree, institution = self._parse_education(
                 education_lines
             )
@@ -97,6 +105,7 @@ class EducationExtractor:
                     institution=institution,
                     degree=degree,
                     year=year,
+                    level=level,
                 )
             )
 
@@ -640,3 +649,26 @@ class EducationExtractor:
         return bool(
             re.search(r"\d", text)
         )
+
+    @staticmethod
+    def _extract_education_level(
+            text: str,
+    ) -> str | None:
+
+        patterns = [
+            r"\bNiveau\s+[3-8]\s*\(\s*BAC\s*\+\s*\d+\s*\)",
+            r"\bBAC\s*\+\s*[2-8]\b",
+            r"\bNiveau\s+[3-8]\b",
+        ]
+
+        for pattern in patterns:
+            match = re.search(
+                pattern,
+                text,
+                flags=re.IGNORECASE,
+            )
+
+            if match:
+                return match.group(0).strip()
+
+        return None

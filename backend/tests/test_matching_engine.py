@@ -262,7 +262,7 @@ def test_matching_engine_partial_education_score():
 
     assert (
         result.details.education
-        == 60.0
+        == 70.0
     )
 
 def test_match_result_model():
@@ -408,3 +408,127 @@ def test_matching_engine_uses_candidate_knowledge_from_experience():
     assert "data engineering" in result.matched_skills
     assert "computer vision" in result.matched_skills
     assert "data science" in result.matched_skills
+
+def test_matching_engine_uses_relevant_experience():
+
+    cv = CV(
+        candidate_name="John Doe",
+        title="Machine Learning Engineer",
+        contact=Contact(),
+        profile="",
+        experiences=[
+            Experience(
+                company="AI Corp",
+                role="Machine Learning Engineer",
+                start_date="2023",
+                end_date="2025",
+                description=[
+                    "Machine Learning and MLOps."
+                ],
+            ),
+            Experience(
+                company="Web Corp",
+                role="Backend Developer",
+                start_date="2018",
+                end_date="2023",
+                description=[
+                    "REST APIs and PostgreSQL."
+                ],
+            ),
+        ],
+        education=[],
+        skills=[],
+        soft_skills=[],
+        tools=[],
+        languages=[],
+    )
+
+    job = JobOffer(
+        title="AI Engineer",
+        description="",
+        skills=[
+            "Machine Learning",
+            "MLOps",
+        ],
+        experience_required="5 ans",
+    )
+
+    result = MatchingEngine().match(
+        cv,
+        job,
+    )
+
+    assert result.details.experience == 40.0
+
+def test_matching_engine_uses_total_experience_when_no_domain_is_specified():
+
+    cv = CV(
+        candidate_name="John Doe",
+        title="Developer",
+        contact=Contact(),
+        profile="",
+        experiences=[
+            Experience(
+                company="ACME",
+                role="Backend Developer",
+                start_date="2020",
+                end_date="2024",
+                description=[],
+            ),
+        ],
+        education=[],
+        skills=[],
+        soft_skills=[],
+        tools=[],
+        languages=[],
+    )
+
+    job = JobOffer(
+        title="Developer",
+        description="",
+        experience_required="4 ans",
+        skills=[],
+        tools=[],
+    )
+
+    result = MatchingEngine().match(
+        cv,
+        job,
+    )
+
+    assert result.details.experience == 100.0
+
+def test_matching_engine_education_with_explicit_cv_level():
+
+    cv = CV(
+        candidate_name="John Doe",
+        title="AI Engineer",
+        contact=Contact(),
+        profile="",
+        experiences=[],
+        education=[
+            Education(
+                institution="Mines Paris",
+                degree="Expert en Ingénierie de l’IA",
+                year="2025-2026",
+                level="Niveau 7 (BAC+5)",
+            )
+        ],
+        skills=[],
+        soft_skills=[],
+        tools=[],
+        languages=[],
+    )
+
+    job = JobOffer(
+        title="AI Engineer",
+        description="",
+        education_required="Master",
+    )
+
+    result = MatchingEngine().match(
+        cv,
+        job,
+    )
+
+    assert result.details.education == 100.0
