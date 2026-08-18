@@ -39,3 +39,18 @@ class MatchResult(BaseModel):
     missing_languages: list[str] = Field(
         default_factory=list
     )
+
+class MatchExplanation(BaseModel):
+    summary: str
+
+    strengths: list[str] = Field(
+        default_factory=list
+    )
+
+    weaknesses: list[str] = Field(
+        default_factory=list
+    )
+
+    recommendations: list[str] = Field(
+        default_factory=list
+    )

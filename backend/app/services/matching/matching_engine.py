@@ -12,14 +12,15 @@ from app.services.matching.relevant_experience_calculator import (
     RelevantExperienceCalculator,
 )
 
+
 class MatchingEngine:
 
     WEIGHTS = {
         "skills": 0.40,
-        "tools": 0.25,
-        "languages": 0.10,
-        "experience": 0.15,
+        "tools": 0.20,
+        "experience": 0.20,
         "education": 0.10,
+        "languages": 0.10,
     }
 
     EDUCATION_LEVELS = {
@@ -61,17 +62,22 @@ class MatchingEngine:
     ) -> MatchResult:
 
         # ---------------------------------------------------------
-        # 1. Compétences techniques
-        #
-        # Une compétence demandée dans l'offre peut se trouver
-        # dans cv.skills ou cv.tools.
+        # 1. Construire les connaissances techniques du candidat
         # ---------------------------------------------------------
 
         candidate_knowledge = (
-            self.candidate_knowledge_extractor.extract(cv)
+            self.candidate_knowledge_extractor.extract(
+                cv
+            )
         )
 
-        cv_technical_terms = candidate_knowledge.terms
+        cv_technical_terms = (
+            candidate_knowledge.terms
+        )
+
+        # ---------------------------------------------------------
+        # 2. Compétences techniques
+        # ---------------------------------------------------------
 
         (
             skills_score,
@@ -83,7 +89,7 @@ class MatchingEngine:
         )
 
         # ---------------------------------------------------------
-        # 2. Outils / technologies
+        # 3. Outils / technologies
         # ---------------------------------------------------------
 
         (
@@ -96,7 +102,7 @@ class MatchingEngine:
         )
 
         # ---------------------------------------------------------
-        # 3. Langues
+        # 4. Langues
         # ---------------------------------------------------------
 
         (
@@ -109,47 +115,68 @@ class MatchingEngine:
         )
 
         # ---------------------------------------------------------
-        # 4. Expérience
+        # 5. Expérience
         # ---------------------------------------------------------
 
-        experience_score = self._score_experience(
-            cv=cv,
-            requirement=job.experience_required,
-            required_terms=(
+        experience_score = (
+            self._score_experience(
+                cv=cv,
+                requirement=(
+                    job.experience_required
+                ),
+                required_terms=(
                     job.skills
                     + job.tools
-            ),
+                ),
+            )
         )
 
         # ---------------------------------------------------------
-        # 5. Formation
+        # 6. Formation
         # ---------------------------------------------------------
 
-        education_score = self._score_education(
-            cv,
-            job.education_required,
+        education_score = (
+            self._score_education(
+                cv,
+                job.education_required,
+            )
         )
 
         # ---------------------------------------------------------
-        # 6. Catégories applicables
-        #
-        # Une catégorie non demandée par l'offre est considérée N/A.
-        # Elle apparaît à 0 dans les détails mais n'entre pas dans
-        # le calcul du score global.
+        # 7. Convertir les sous-scores en pourcentages
         # ---------------------------------------------------------
 
         scores = {
-            "skills": skills_score,
-            "tools": tools_score,
-            "languages": languages_score,
-            "experience": experience_score,
-            "education": education_score,
+            "skills": skills_score * 100,
+            "tools": tools_score * 100,
+            "languages": (
+                languages_score * 100
+            ),
+            "experience": (
+                experience_score * 100
+            ),
+            "education": (
+                education_score * 100
+            ),
         }
 
-        applicable = {
-            "skills": bool(job.skills),
-            "tools": bool(job.tools),
-            "languages": bool(job.languages),
+        # ---------------------------------------------------------
+        # 8. Déterminer les catégories réellement applicables
+        #
+        # Une catégorie non demandée par l'offre ne participe
+        # pas au score global.
+        # ---------------------------------------------------------
+
+        active = {
+            "skills": bool(
+                job.skills
+            ),
+            "tools": bool(
+                job.tools
+            ),
+            "languages": bool(
+                job.languages
+            ),
             "experience": bool(
                 job.experience_required
             ),
@@ -158,58 +185,42 @@ class MatchingEngine:
             ),
         }
 
-        weighted_score = 0.0
-        applicable_weight = 0.0
+        # ---------------------------------------------------------
+        # 9. Score global avec pondération dynamique
+        # ---------------------------------------------------------
 
-        for category, score in scores.items():
-
-            if not applicable[category]:
-                continue
-
-            weight = self.WEIGHTS[category]
-
-            weighted_score += (
-                score * weight
+        total_score = (
+            self._calculate_weighted_score(
+                scores=scores,
+                active=active,
             )
-
-            applicable_weight += weight
-
-        if applicable_weight > 0:
-            total_score = (
-                weighted_score
-                / applicable_weight
-            )
-        else:
-            total_score = 0.0
+        )
 
         # ---------------------------------------------------------
-        # 7. Résultat structuré
+        # 10. Résultat structuré
         # ---------------------------------------------------------
 
         return MatchResult(
-            score=round(
-                total_score * 100,
-                2,
-            ),
+            score=total_score,
             details=MatchDetails(
                 skills=round(
-                    skills_score * 100,
+                    scores["skills"],
                     2,
                 ),
                 tools=round(
-                    tools_score * 100,
+                    scores["tools"],
                     2,
                 ),
                 languages=round(
-                    languages_score * 100,
+                    scores["languages"],
                     2,
                 ),
                 experience=round(
-                    experience_score * 100,
+                    scores["experience"],
                     2,
                 ),
                 education=round(
-                    education_score * 100,
+                    scores["education"],
                     2,
                 ),
             ),
@@ -220,6 +231,10 @@ class MatchingEngine:
             matched_languages=matched_languages,
             missing_languages=missing_languages,
         )
+
+    # =============================================================
+    # Matching de termes
+    # =============================================================
 
     @staticmethod
     def _match_terms(
@@ -268,6 +283,10 @@ class MatchingEngine:
             matched,
             missing,
         )
+
+    # =============================================================
+    # Expérience
+    # =============================================================
 
     @staticmethod
     def _extract_required_experience(
@@ -343,13 +362,15 @@ class MatchingEngine:
                     - start_year
                 ) * 12
 
-        return total_months / 12
+        return (
+            total_months / 12
+        )
 
     def _score_experience(
-            self,
-            cv: CV,
-            requirement: str | None,
-            required_terms: list[str],
+        self,
+        cv: CV,
+        requirement: str | None,
+        required_terms: list[str],
     ) -> float:
 
         required_years = (
@@ -365,18 +386,19 @@ class MatchingEngine:
             return 0.0
 
         # Si l'offre fournit des compétences ou technologies,
-        # on mesure l'expérience pertinente par rapport à celles-ci.
+        # on calcule l'expérience pertinente.
         if required_terms:
 
             experience_years = (
                 self.relevant_experience_calculator.calculate(
                     cv=cv,
-                    required_terms=required_terms,
+                    required_terms=(
+                        required_terms
+                    ),
                 )
             )
 
-        # Si l'offre indique seulement un nombre d'années sans
-        # préciser de domaine, on utilise l'expérience totale.
+        # Sinon, on utilise l'expérience professionnelle totale.
         else:
 
             experience_years = (
@@ -386,9 +408,14 @@ class MatchingEngine:
             )
 
         return min(
-            experience_years / required_years,
+            experience_years
+            / required_years,
             1.0,
         )
+
+    # =============================================================
+    # Formation
+    # =============================================================
 
     @classmethod
     def _extract_education_level(
@@ -416,8 +443,8 @@ class MatchingEngine:
 
     @classmethod
     def _get_cv_education_level(
-            cls,
-            cv: CV,
+        cls,
+        cv: CV,
     ) -> int | None:
 
         levels: list[int] = []
@@ -434,8 +461,10 @@ class MatchingEngine:
                 if part
             )
 
-            level = cls._extract_education_level(
-                text
+            level = (
+                cls._extract_education_level(
+                    text
+                )
             )
 
             if level is not None:
@@ -448,9 +477,9 @@ class MatchingEngine:
 
     @classmethod
     def _score_education(
-            cls,
-            cv: CV,
-            requirement: str | None,
+        cls,
+        cv: CV,
+        requirement: str | None,
     ) -> float:
 
         required_level = (
@@ -471,15 +500,66 @@ class MatchingEngine:
         if cv_level is None:
             return 0.0
 
+        # Niveau candidat suffisant ou supérieur.
         if cv_level >= required_level:
             return 1.0
 
-        gap = required_level - cv_level
+        gap = (
+            required_level
+            - cv_level
+        )
 
+        # Un niveau en dessous.
         if gap == 1:
             return 0.70
 
+        # Deux niveaux en dessous.
         if gap == 2:
             return 0.40
 
+        # Trois niveaux ou plus en dessous.
         return 0.20
+
+    # =============================================================
+    # Score global pondéré
+    # =============================================================
+
+    @classmethod
+    def _calculate_weighted_score(
+        cls,
+        scores: dict[str, float],
+        active: dict[str, bool],
+    ) -> float:
+
+        weighted_sum = 0.0
+        active_weight = 0.0
+
+        for (
+            category,
+            weight,
+        ) in cls.WEIGHTS.items():
+
+            if not active.get(
+                category,
+                False,
+            ):
+                continue
+
+            weighted_sum += (
+                scores.get(
+                    category,
+                    0.0,
+                )
+                * weight
+            )
+
+            active_weight += weight
+
+        if active_weight == 0:
+            return 0.0
+
+        return round(
+            weighted_sum
+            / active_weight,
+            2,
+        )

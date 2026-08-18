@@ -60,3 +60,50 @@ def test_rank_jobs_by_matching_score():
     )
 
     assert result.jobs[0].job.id == "HIGH"
+
+def test_rank_jobs_contains_explanation():
+
+    cv = CV(
+        candidate_name="John Doe",
+        title="AI Engineer",
+        skills=[
+            "Python",
+            "Machine Learning",
+        ],
+        tools=[],
+        languages=[],
+        experiences=[],
+        education=[],
+    )
+
+    jobs = [
+        JobOffer(
+            id="AI-1",
+            title="AI Engineer",
+            description=(
+                "Compétences requises : "
+                "Python, Machine Learning, RAG."
+            ),
+        )
+    ]
+
+    result = JobRankingService().rank(
+        cv=cv,
+        jobs=jobs,
+    )
+
+    ranked_job = result.jobs[0]
+
+    assert ranked_job.explanation.summary
+    assert isinstance(
+        ranked_job.explanation.strengths,
+        list,
+    )
+    assert isinstance(
+        ranked_job.explanation.weaknesses,
+        list,
+    )
+    assert isinstance(
+        ranked_job.explanation.recommendations,
+        list,
+    )

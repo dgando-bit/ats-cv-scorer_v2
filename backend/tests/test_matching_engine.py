@@ -532,3 +532,79 @@ def test_matching_engine_education_with_explicit_cv_level():
     )
 
     assert result.details.education == 100.0
+
+def test_dynamic_score_ignores_unused_categories():
+
+    scores = {
+        "skills": 100.0,
+        "tools": 60.0,
+        "experience": 20.0,
+        "education": 0.0,
+        "languages": 0.0,
+    }
+
+    active = {
+        "skills": True,
+        "tools": True,
+        "experience": True,
+        "education": False,
+        "languages": False,
+    }
+
+    score = MatchingEngine._calculate_weighted_score(
+        scores=scores,
+        active=active,
+    )
+
+    assert score == 70.0
+
+def test_dynamic_score_redistributes_weights():
+
+    scores = {
+        "skills": 100.0,
+        "tools": 50.0,
+        "experience": 0.0,
+        "education": 0.0,
+        "languages": 0.0,
+    }
+
+    active = {
+        "skills": True,
+        "tools": True,
+        "experience": False,
+        "education": False,
+        "languages": False,
+    }
+
+    score = MatchingEngine._calculate_weighted_score(
+        scores=scores,
+        active=active,
+    )
+
+    # (100 * 0.40 + 50 * 0.20) / 0.60
+    assert score == 83.33
+
+def test_dynamic_score_returns_zero_when_no_category_is_active():
+
+    scores = {
+        "skills": 0.0,
+        "tools": 0.0,
+        "experience": 0.0,
+        "education": 0.0,
+        "languages": 0.0,
+    }
+
+    active = {
+        "skills": False,
+        "tools": False,
+        "experience": False,
+        "education": False,
+        "languages": False,
+    }
+
+    score = MatchingEngine._calculate_weighted_score(
+        scores=scores,
+        active=active,
+    )
+
+    assert score == 0.0

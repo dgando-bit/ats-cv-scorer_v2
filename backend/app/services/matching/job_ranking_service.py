@@ -10,13 +10,18 @@ from app.services.jobs.job_offer_extractor import (
 from app.services.matching.matching_engine import (
     MatchingEngine,
 )
-
+from app.services.matching.match_explanation_service import (
+    MatchExplanationService,
+)
 
 class JobRankingService:
 
     def __init__(self):
         self.job_offer_extractor = JobOfferExtractor()
         self.matching_engine = MatchingEngine()
+        self.match_explanation_service = (
+            MatchExplanationService()
+        )
 
     def rank(
         self,
@@ -46,14 +51,22 @@ class JobRankingService:
             extracted_job.source_url = job.source_url
 
             match = self.matching_engine.match(
-                cv,
-                extracted_job,
+	            cv,
+	            extracted_job,
+            )
+
+            explanation = (
+	            self.match_explanation_service.explain(
+		            job=extracted_job,
+		            match=match,
+	            )
             )
 
             ranked_jobs.append(
                 RankedJob(
                     job=extracted_job,
                     match=match,
+                    explanation=explanation,
                 )
             )
 
