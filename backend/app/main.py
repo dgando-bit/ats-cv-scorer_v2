@@ -3,6 +3,7 @@ from app.api.routes.match import router as match_router
 from app.api.routes.job import router as job_router
 from app.api.routes.cv import router as cv_router
 from app.api.routes.analyze import router as analyze_router
+from app.api.routes import jobs
 
 app = FastAPI(
     title="ATS CV Scorer",
@@ -22,3 +23,4 @@ app.include_router(match_router)
 app.include_router(job_router)
 app.include_router(cv_router)
 app.include_router(analyze_router)
+app.include_router(jobs.router)

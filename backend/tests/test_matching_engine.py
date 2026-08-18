@@ -318,3 +318,46 @@ def test_matching_skills_can_be_found_in_cv_tools():
     assert result.details.skills == 100.0
     assert "python" in result.matched_skills
     assert "sql" in result.matched_skills
+
+def test_empty_job_categories_do_not_inflate_score():
+
+    cv = CV(
+        candidate_name="John Doe",
+        title="Developer",
+        skills=[],
+        tools=[],
+        languages=[],
+        experiences=[],
+        education=[],
+    )
+
+    job = JobOffer(
+        title="Product Builder",
+        description="Stage Product Builder",
+        skills=[],
+        tools=[],
+        languages=["anglais", "français"],
+        experience_required=None,
+        education_required="Bac+5",
+    )
+
+    result = MatchingEngine().match(cv, job)
+
+    assert result.details.skills == 0
+    assert result.details.tools == 0
+    assert result.details.languages == 0
+    assert result.details.experience == 0
+    assert result.details.education == 0
+
+    assert result.score == 0
+
+    assert result.matched_skills == []
+    assert result.missing_skills == []
+
+    assert result.matched_tools == []
+    assert result.missing_tools == []
+
+    assert set(result.missing_languages) == {
+        "anglais",
+        "français",
+    }

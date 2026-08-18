@@ -1,9 +1,11 @@
 import re
+from datetime import datetime
+
 from app.models.cv import CV
 from app.models.job import JobOffer
-from app.services.matching.skill_normalizer import SkillNormalizer
-from datetime import datetime
 from app.models.match import MatchDetails, MatchResult
+from app.services.matching.skill_normalizer import SkillNormalizer
+
 
 class MatchingEngine:
 
@@ -33,56 +35,131 @@ class MatchingEngine:
     }
 
     def match(
-            self,
-            cv: CV,
-            job: JobOffer,
+        self,
+        cv: CV,
+        job: JobOffer,
     ) -> MatchResult:
 
+        # ---------------------------------------------------------
+        # 1. Compétences techniques
+        #
+        # Une compétence demandée dans l'offre peut se trouver
+        # dans cv.skills ou cv.tools.
+        # ---------------------------------------------------------
+
         cv_technical_terms = (
-                cv.skills
-                + cv.tools
+            cv.skills
+            + cv.tools
         )
 
-        skills_score, matched_skills, missing_skills = (
-            self._match_terms(
-                cv_technical_terms,
-                job.skills,
-            )
+        (
+            skills_score,
+            matched_skills,
+            missing_skills,
+        ) = self._match_terms(
+            cv_technical_terms,
+            job.skills,
         )
 
-        tools_score, matched_tools, missing_tools = (
-            self._match_terms(
-                cv.tools,
-                job.tools,
-            )
+        # ---------------------------------------------------------
+        # 2. Outils / technologies
+        # ---------------------------------------------------------
+
+        (
+            tools_score,
+            matched_tools,
+            missing_tools,
+        ) = self._match_terms(
+            cv.tools,
+            job.tools,
         )
 
-        languages_score, matched_languages, missing_languages = (
-            self._match_terms(
-                cv.languages,
-                job.languages,
-            )
+        # ---------------------------------------------------------
+        # 3. Langues
+        # ---------------------------------------------------------
+
+        (
+            languages_score,
+            matched_languages,
+            missing_languages,
+        ) = self._match_terms(
+            cv.languages,
+            job.languages,
         )
 
-        # MVP : on garde ces deux scores simples
-        # pour l'instant.
+        # ---------------------------------------------------------
+        # 4. Expérience
+        # ---------------------------------------------------------
+
         experience_score = self._score_experience(
             cv,
             job.experience_required,
         )
+
+        # ---------------------------------------------------------
+        # 5. Formation
+        # ---------------------------------------------------------
 
         education_score = self._score_education(
             cv,
             job.education_required,
         )
 
-        total_score = (
-            skills_score * self.WEIGHTS["skills"]
-            + tools_score * self.WEIGHTS["tools"]
-            + languages_score * self.WEIGHTS["languages"]
-            + experience_score * self.WEIGHTS["experience"]
-            + education_score * self.WEIGHTS["education"]
-        )
+        # ---------------------------------------------------------
+        # 6. Catégories applicables
+        #
+        # Une catégorie non demandée par l'offre est considérée N/A.
+        # Elle apparaît à 0 dans les détails mais n'entre pas dans
+        # le calcul du score global.
+        # ---------------------------------------------------------
+
+        scores = {
+            "skills": skills_score,
+            "tools": tools_score,
+            "languages": languages_score,
+            "experience": experience_score,
+            "education": education_score,
+        }
+
+        applicable = {
+            "skills": bool(job.skills),
+            "tools": bool(job.tools),
+            "languages": bool(job.languages),
+            "experience": bool(
+                job.experience_required
+            ),
+            "education": bool(
+                job.education_required
+            ),
+        }
+
+        weighted_score = 0.0
+        applicable_weight = 0.0
+
+        for category, score in scores.items():
+
+            if not applicable[category]:
+                continue
+
+            weight = self.WEIGHTS[category]
+
+            weighted_score += (
+                score * weight
+            )
+
+            applicable_weight += weight
+
+        if applicable_weight > 0:
+            total_score = (
+                weighted_score
+                / applicable_weight
+            )
+        else:
+            total_score = 0.0
+
+        # ---------------------------------------------------------
+        # 7. Résultat structuré
+        # ---------------------------------------------------------
 
         return MatchResult(
             score=round(
@@ -123,7 +200,11 @@ class MatchingEngine:
     def _match_terms(
         cv_terms: list[str],
         job_terms: list[str],
-    ) -> tuple[float, list[str], list[str]]:
+    ) -> tuple[
+        float,
+        list[str],
+        list[str],
+    ]:
 
         normalized_cv = set(
             SkillNormalizer.normalize_many(
@@ -137,8 +218,10 @@ class MatchingEngine:
             )
         )
 
+        # Aucun critère demandé :
+        # catégorie non applicable.
         if not normalized_job:
-            return 1.0, [], []
+            return 0.0, [], []
 
         matched = sorted(
             normalized_cv
@@ -155,11 +238,15 @@ class MatchingEngine:
             / len(normalized_job)
         )
 
-        return score, matched, missing
+        return (
+            score,
+            matched,
+            missing,
+        )
 
     @staticmethod
     def _extract_required_experience(
-            value: str | None,
+        value: str | None,
     ) -> int | None:
 
         if not value:
@@ -173,16 +260,20 @@ class MatchingEngine:
         if not match:
             return None
 
-        return int(match.group(1))
+        return int(
+            match.group(1)
+        )
 
     @staticmethod
     def _calculate_cv_experience_years(
-            cv: CV,
+        cv: CV,
     ) -> float:
 
         total_months = 0
 
-        current_year = datetime.now().year
+        current_year = (
+            datetime.now().year
+        )
 
         for experience in cv.experiences:
 
@@ -202,32 +293,38 @@ class MatchingEngine:
             )
 
             if experience.end_date:
+
                 end_match = re.search(
                     r"(19|20)\d{2}",
                     experience.end_date,
                 )
+
             else:
                 end_match = None
 
             if end_match:
+
                 end_year = int(
                     end_match.group()
                 )
+
             else:
                 end_year = current_year
 
             if end_year >= start_year:
+
                 total_months += (
-                                        end_year - start_year
-                                ) * 12
+                    end_year
+                    - start_year
+                ) * 12
 
         return total_months / 12
 
     @classmethod
     def _score_experience(
-            cls,
-            cv: CV,
-            requirement: str | None,
+        cls,
+        cv: CV,
+        requirement: str | None,
     ) -> float:
 
         required_years = (
@@ -236,11 +333,13 @@ class MatchingEngine:
             )
         )
 
+        # Pas d'exigence :
+        # catégorie non applicable.
         if required_years is None:
-            return 1.0
+            return 0.0
 
         if required_years <= 0:
-            return 1.0
+            return 0.0
 
         cv_years = (
             cls._calculate_cv_experience_years(
@@ -249,14 +348,15 @@ class MatchingEngine:
         )
 
         return min(
-            cv_years / required_years,
+            cv_years
+            / required_years,
             1.0,
         )
 
     @classmethod
     def _extract_education_level(
-            cls,
-            value: str | None,
+        cls,
+        value: str | None,
     ) -> int | None:
 
         if not value:
@@ -267,7 +367,11 @@ class MatchingEngine:
             .lower()
         )
 
-        for label, level in cls.EDUCATION_LEVELS.items():
+        for (
+            label,
+            level,
+        ) in cls.EDUCATION_LEVELS.items():
+
             if label in normalized:
                 return level
 
@@ -275,11 +379,11 @@ class MatchingEngine:
 
     @classmethod
     def _get_cv_education_level(
-            cls,
-            cv: CV,
+        cls,
+        cv: CV,
     ) -> int | None:
 
-        levels = []
+        levels: list[int] = []
 
         for education in cv.education:
 
@@ -292,8 +396,10 @@ class MatchingEngine:
                 if part
             )
 
-            level = cls._extract_education_level(
-                text
+            level = (
+                cls._extract_education_level(
+                    text
+                )
             )
 
             if level is not None:
@@ -306,9 +412,9 @@ class MatchingEngine:
 
     @classmethod
     def _score_education(
-            cls,
-            cv: CV,
-            requirement: str | None,
+        cls,
+        cv: CV,
+        requirement: str | None,
     ) -> float:
 
         required_level = (
@@ -317,17 +423,22 @@ class MatchingEngine:
             )
         )
 
+        # Pas d'exigence :
+        # catégorie non applicable.
         if required_level is None:
-            return 1.0
+            return 0.0
 
-        cv_level = cls._get_cv_education_level(
-            cv
+        cv_level = (
+            cls._get_cv_education_level(
+                cv
+            )
         )
 
         if cv_level is None:
             return 0.0
 
         return min(
-            cv_level / required_level,
+            cv_level
+            / required_level,
             1.0,
         )

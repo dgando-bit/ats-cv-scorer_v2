@@ -6,19 +6,10 @@ from app.models.job import JobOffer
 class JobProvider(ABC):
 
     @abstractmethod
-    def search(
+    def search_jobs(
         self,
-        query: str,
+        keywords: str,
         location: str | None = None,
         limit: int = 20,
     ) -> list[JobOffer]:
-        """Search job offers."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_by_id(
-        self,
-        job_id: str,
-    ) -> JobOffer | None:
-        """Retrieve one job offer."""
         raise NotImplementedError
