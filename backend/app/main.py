@@ -8,6 +8,9 @@ from app.api.routes import jobs
 from app.api.routes.ranking import (
     router as ranking_router,
 )
+from app.api.routes.locations import (
+    router as locations_router,
+)
 
 app = FastAPI(
     title="ATS CV Scorer",
@@ -39,3 +42,4 @@ app.include_router(cv_router)
 app.include_router(analyze_router)
 app.include_router(jobs.router)
 app.include_router(ranking_router)
+app.include_router(locations_router)
