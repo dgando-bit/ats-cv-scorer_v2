@@ -7,6 +7,7 @@ export interface RankJobsParams {
 	file: File
 	keywords: string
 	location?: string
+	inseeCode?: string
 	limit?: number
 }
 
@@ -14,6 +15,7 @@ export async function rankJobs({
 								   file,
 								   keywords,
 								   location,
+								   inseeCode,
 								   limit = 5,
 							   }: RankJobsParams): Promise<JobRankingResult> {
 	const formData = new FormData()
@@ -23,6 +25,10 @@ export async function rankJobs({
 
 	if (location) {
 		formData.append('location', location)
+	}
+
+	if (inseeCode) {
+		formData.append('insee_code', inseeCode)
 	}
 
 	formData.append('limit', String(limit))

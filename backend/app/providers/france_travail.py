@@ -155,6 +155,7 @@ class FranceTravailProvider(JobProvider, ABC):
         self,
         keywords: str,
         location: str | None = None,
+        insee_code: str | None = None,
         limit: int = 20,
     ) -> list[JobOffer]:
 
@@ -170,11 +171,10 @@ class FranceTravailProvider(JobProvider, ABC):
             "range": f"0-{limit - 1}",
         }
 
-        # if location:
-        #     # Pour France Travail, on utilisera
-        #     # ici le code commune INSEE.
-        #     params["commune"] = location
-        if location:
+        if insee_code:
+            params["commune"] = insee_code
+
+        elif location:
             commune_code = self.location_resolver.resolve(
                 location
             )

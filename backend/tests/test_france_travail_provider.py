@@ -144,3 +144,57 @@ def test_search_jobs_resolves_location(
     )
 
     assert captured_params["commune"] == "75101"
+
+def test_search_jobs_uses_insee_code_directly(
+    monkeypatch,
+):
+    provider = FranceTravailProvider(
+        client_id="test-client-id",
+        client_secret="test-client-secret",
+    )
+
+    monkeypatch.setattr(
+        provider,
+        "_get_access_token",
+        lambda: "fake-token",
+    )
+
+    captured_params = {}
+
+    class FakeResponse:
+        status_code = 200
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {
+                "resultats": []
+            }
+
+    def fake_get(
+        url,
+        headers=None,
+        params=None,
+        timeout=None,
+    ):
+        captured_params.update(
+            params or {}
+        )
+
+        return FakeResponse()
+
+    monkeypatch.setattr(
+        provider.client,
+        "get",
+        fake_get,
+    )
+
+    provider.search_jobs(
+        keywords="machine learning",
+        location="Paris 1er Arrondissement (75001)",
+        insee_code="75101",
+        limit=5,
+    )
+
+    assert captured_params["commune"] == "75101"

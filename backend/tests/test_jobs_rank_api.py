@@ -26,6 +26,7 @@ class FakeJobProvider(JobProvider):
         self,
         keywords: str,
         location: str | None = None,
+        insee_code: str | None = None,
         limit: int = 20,
     ) -> list[JobOffer]:
 
@@ -75,7 +76,7 @@ def test_rank_jobs_endpoint():
                     "keywords": (
                         "machine learning engineer"
                     ),
-                    "location": "75101",
+                    "location": "Paris 1er Arrondissement (75001)",
                     "limit": "10",
                 },
             )
@@ -121,7 +122,8 @@ def test_rank_jobs_accepts_pdf_with_generic_content_type():
                     "keywords": (
                         "machine learning engineer"
                     ),
-                    "location": "75101",
+                    "location": "Paris 1er Arrondissement (75001)",
+                    "insee_code": "75101",
                     "limit": "5",
                 },
             )

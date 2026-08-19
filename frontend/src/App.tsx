@@ -27,8 +27,8 @@ function App() {
       const data = await rankJobs({
         file: values.file,
         keywords: values.keywords,
-        location:
-        values.location?.insee_code,
+        location: values.location?.label,
+        inseeCode: values.location?.insee_code,
         limit: values.limit,
       })
 

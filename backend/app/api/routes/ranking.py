@@ -34,6 +34,7 @@ async def rank_jobs(
     file: UploadFile = File(...),
     keywords: str = Form(...),
     location: str | None = Form(None),
+    insee_code: str | None = Form(None),
     limit: int = Form(10),
     provider: JobProvider = Depends(get_job_provider),
 ) -> JobRankingResult:
@@ -57,6 +58,7 @@ async def rank_jobs(
         jobs = provider.search_jobs(
             keywords=keywords,
             location=location,
+            insee_code=insee_code,
             limit=limit,
         )
 
