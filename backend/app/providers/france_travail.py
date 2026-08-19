@@ -6,7 +6,9 @@ import httpx
 
 from app.models.job import JobOffer
 from app.providers.base import JobProvider
-
+from app.services.locations.location_resolver import (
+    LocationResolver,
+)
 
 class FranceTravailProvider(JobProvider, ABC):
 
@@ -36,6 +38,8 @@ class FranceTravailProvider(JobProvider, ABC):
         scope: str | None = None,
         client: httpx.Client | None = None,
     ) -> None:
+
+        self.location_resolver = LocationResolver()
 
         self.client_id = (
             client_id
@@ -166,10 +170,17 @@ class FranceTravailProvider(JobProvider, ABC):
             "range": f"0-{limit - 1}",
         }
 
+        # if location:
+        #     # Pour France Travail, on utilisera
+        #     # ici le code commune INSEE.
+        #     params["commune"] = location
         if location:
-            # Pour France Travail, on utilisera
-            # ici le code commune INSEE.
-            params["commune"] = location
+            commune_code = self.location_resolver.resolve(
+                location
+            )
+
+            if commune_code:
+                params["commune"] = commune_code
 
         response = self.client.get(
             self.SEARCH_URL,

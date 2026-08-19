@@ -85,3 +85,62 @@ def test_search_france_travail_jobs():
     assert job.location == "75 - Paris"
     assert job.contract_type == "CDI"
     assert job.source == "france_travail"
+
+def test_search_jobs_resolves_location(
+    monkeypatch,
+):
+    provider = FranceTravailProvider(
+        client_id="test-client-id",
+        client_secret="test-client-secret",
+    )
+
+    monkeypatch.setattr(
+        provider.location_resolver,
+        "resolve",
+        lambda location: "75101",
+    )
+
+    monkeypatch.setattr(
+        provider,
+        "_get_access_token",
+        lambda: "fake-token",
+    )
+
+    captured_params = {}
+
+    class FakeResponse:
+        status_code = 200
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {
+                "resultats": []
+            }
+
+    def fake_get(
+        url,
+        headers=None,
+        params=None,
+        timeout=None,
+    ):
+        captured_params.update(
+            params or {}
+        )
+
+        return FakeResponse()
+
+    monkeypatch.setattr(
+        provider.client,
+        "get",
+        fake_get,
+    )
+
+    provider.search_jobs(
+        keywords="machine learning",
+        location="75001",
+        limit=5,
+    )
+
+    assert captured_params["commune"] == "75101"
