@@ -1,9 +1,14 @@
 import { useState } from 'react'
+import LocationAutocomplete from './LocationAutocomplete'
+
+import type {
+	LocationSuggestion,
+} from '../api/locations'
 
 export interface SearchFormValues {
 	file: File
 	keywords: string
-	location: string
+	location: LocationSuggestion | null
 	limit: number
 }
 
@@ -18,7 +23,8 @@ export default function SearchForm({
 								   }: SearchFormProps) {
 	const [file, setFile] = useState<File | null>(null)
 	const [keywords, setKeywords] = useState('')
-	const [location, setLocation] = useState('')
+	const [location, setLocation] =
+		useState<LocationSuggestion | null>(null)
 	const [limit, setLimit] = useState(5)
 
 	function handleSubmit(
@@ -33,7 +39,7 @@ export default function SearchForm({
 		onSubmit({
 			file,
 			keywords: keywords.trim(),
-			location: location.trim(),
+			location,
 			limit,
 		})
 	}
@@ -92,23 +98,26 @@ export default function SearchForm({
 				</div>
 
 				<div>
-					<label
-						htmlFor="location"
-						className="mb-2 block text-sm font-medium text-slate-700"
-					>
-						Localisation
-					</label>
-
-					<input
-						id="location"
-						type="text"
+					{/*<label*/}
+					{/*	htmlFor="location"*/}
+					{/*	className="mb-2 block text-sm font-medium text-slate-700"*/}
+					{/*>*/}
+					{/*	Localisation*/}
+					{/*</label>*/}
+					<LocationAutocomplete
 						value={location}
-						onChange={(event) => {
-							setLocation(event.target.value)
-						}}
-						placeholder="Paris"
-						className="w-full rounded-xl border border-slate-300 px-3 py-2 text-base outline-none focus:border-blue-500"
+						onChange={setLocation}
 					/>
+					{/*<input*/}
+					{/*	id="location"*/}
+					{/*	type="text"*/}
+					{/*	value={location}*/}
+					{/*	onChange={(event) => {*/}
+					{/*		setLocation(event.target.value)*/}
+					{/*	}}*/}
+					{/*	placeholder="Paris"*/}
+					{/*	className="w-full rounded-xl border border-slate-300 px-3 py-2 text-base outline-none focus:border-blue-500"*/}
+					{/*/>*/}
 				</div>
 
 				<div>
