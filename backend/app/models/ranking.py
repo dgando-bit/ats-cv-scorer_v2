@@ -7,6 +7,7 @@ from app.models.match import MatchExplanation, MatchResult
 class RankedJob(BaseModel):
     job: JobOffer
     match: MatchResult
+    relevance_score: float
     explanation: MatchExplanation
 
 

@@ -13,6 +13,9 @@ from app.services.matching.matching_engine import (
 from app.services.matching.match_explanation_service import (
     MatchExplanationService,
 )
+from app.services.matching.job_relevance_scorer import (
+    JobRelevanceScorer,
+)
 
 class JobRankingService:
 
@@ -22,11 +25,15 @@ class JobRankingService:
         self.match_explanation_service = (
             MatchExplanationService()
         )
+        self.job_relevance_scorer = (
+            JobRelevanceScorer()
+        )
 
     def rank(
-        self,
-        cv: CV,
-        jobs: list[JobOffer],
+            self,
+            cv: CV,
+            jobs: list[JobOffer],
+            keywords: str,
     ) -> JobRankingResult:
 
         ranked_jobs: list[RankedJob] = []
@@ -51,27 +58,38 @@ class JobRankingService:
             extracted_job.source_url = job.source_url
 
             match = self.matching_engine.match(
-	            cv,
-	            extracted_job,
+                cv,
+                extracted_job,
+            )
+
+            relevance_score = (
+                self.job_relevance_scorer.score(
+                    job=extracted_job,
+                    keywords=keywords,
+                )
             )
 
             explanation = (
-	            self.match_explanation_service.explain(
-		            job=extracted_job,
-		            match=match,
-	            )
+                self.match_explanation_service.explain(
+                    job=extracted_job,
+                    match=match,
+                )
             )
 
             ranked_jobs.append(
                 RankedJob(
                     job=extracted_job,
                     match=match,
+                    relevance_score=relevance_score,
                     explanation=explanation,
                 )
             )
 
         ranked_jobs.sort(
-            key=lambda item: item.match.score,
+            key=lambda item: (
+                item.relevance_score,
+                item.match.score,
+            ),
             reverse=True,
         )
 

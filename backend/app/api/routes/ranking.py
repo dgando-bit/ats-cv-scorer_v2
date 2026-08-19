@@ -65,6 +65,7 @@ async def rank_jobs(
         return ranking_service.rank(
             cv=cv,
             jobs=jobs,
+            keywords=keywords,
         )
 
     finally:

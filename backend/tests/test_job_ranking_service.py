@@ -50,6 +50,7 @@ def test_rank_jobs_by_matching_score():
     result = service.rank(
         cv=cv,
         jobs=jobs,
+        keywords="machine learning"
     )
 
     assert result.candidate_name == "John Doe"
@@ -90,6 +91,7 @@ def test_rank_jobs_contains_explanation():
     result = JobRankingService().rank(
         cv=cv,
         jobs=jobs,
+        keywords="machine learning"
     )
 
     ranked_job = result.jobs[0]
