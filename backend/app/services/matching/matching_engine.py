@@ -3,8 +3,13 @@ from datetime import datetime
 
 from app.models.cv import CV
 from app.models.job import JobOffer
-from app.models.match import MatchDetails, MatchResult
-from app.services.matching.skill_normalizer import SkillNormalizer
+from app.models.match import (
+    MatchDetails,
+    MatchResult,
+)
+from app.services.matching.skill_normalizer import (
+    SkillNormalizer,
+)
 from app.services.matching.candidate_knowledge_extractor import (
     CandidateKnowledgeExtractor,
 )
@@ -14,6 +19,10 @@ from app.services.matching.relevant_experience_calculator import (
 from app.services.matching.language_normalizer import (
     LanguageNormalizer,
 )
+from app.services.matching.candidate_language_resolver import (
+    CandidateLanguageResolver,
+)
+
 
 class MatchingEngine:
 
@@ -48,13 +57,19 @@ class MatchingEngine:
         "niveau 8": 8,
     }
 
-    def __init__(self):
+    def __init__(
+        self,
+    ) -> None:
         self.candidate_knowledge_extractor = (
             CandidateKnowledgeExtractor()
         )
 
         self.relevant_experience_calculator = (
             RelevantExperienceCalculator()
+        )
+
+        self.candidate_language_resolver = (
+            CandidateLanguageResolver()
         )
 
     def match(
@@ -107,12 +122,18 @@ class MatchingEngine:
         # 4. Langues
         # ---------------------------------------------------------
 
+        candidate_languages = (
+            self.candidate_language_resolver.resolve(
+                cv
+            )
+        )
+
         (
             languages_score,
             matched_languages,
             missing_languages,
         ) = self._match_languages(
-            cv.languages,
+            candidate_languages,
             job.languages,
         )
 
@@ -149,24 +170,30 @@ class MatchingEngine:
         # ---------------------------------------------------------
 
         scores = {
-            "skills": skills_score * 100,
-            "tools": tools_score * 100,
+            "skills": (
+                skills_score
+                * 100
+            ),
+            "tools": (
+                tools_score
+                * 100
+            ),
             "languages": (
-                languages_score * 100
+                languages_score
+                * 100
             ),
             "experience": (
-                experience_score * 100
+                experience_score
+                * 100
             ),
             "education": (
-                education_score * 100
+                education_score
+                * 100
             ),
         }
 
         # ---------------------------------------------------------
         # 8. Déterminer les catégories réellement applicables
-        #
-        # Une catégorie non demandée par l'offre ne participe
-        # pas au score global.
         # ---------------------------------------------------------
 
         active = {
@@ -226,12 +253,24 @@ class MatchingEngine:
                     2,
                 ),
             ),
-            matched_skills=matched_skills,
-            missing_skills=missing_skills,
-            matched_tools=matched_tools,
-            missing_tools=missing_tools,
-            matched_languages=matched_languages,
-            missing_languages=missing_languages,
+            matched_skills=(
+                matched_skills
+            ),
+            missing_skills=(
+                missing_skills
+            ),
+            matched_tools=(
+                matched_tools
+            ),
+            missing_tools=(
+                missing_tools
+            ),
+            matched_languages=(
+                matched_languages
+            ),
+            missing_languages=(
+                missing_languages
+            ),
         )
 
     # =============================================================
@@ -365,7 +404,8 @@ class MatchingEngine:
                 ) * 12
 
         return (
-            total_months / 12
+            total_months
+            / 12
         )
 
     def _score_experience(
@@ -400,7 +440,8 @@ class MatchingEngine:
                 )
             )
 
-        # Sinon, on utilise l'expérience professionnelle totale.
+        # Sinon, on utilise l'expérience
+        # professionnelle totale.
         else:
 
             experience_years = (
@@ -470,12 +511,16 @@ class MatchingEngine:
             )
 
             if level is not None:
-                levels.append(level)
+                levels.append(
+                    level
+                )
 
         if not levels:
             return None
 
-        return max(levels)
+        return max(
+            levels
+        )
 
     @classmethod
     def _score_education(
@@ -502,7 +547,8 @@ class MatchingEngine:
         if cv_level is None:
             return 0.0
 
-        # Niveau candidat suffisant ou supérieur.
+        # Niveau candidat suffisant
+        # ou supérieur.
         if cv_level >= required_level:
             return 1.0
 
@@ -519,7 +565,8 @@ class MatchingEngine:
         if gap == 2:
             return 0.40
 
-        # Trois niveaux ou plus en dessous.
+        # Trois niveaux ou plus
+        # en dessous.
         return 0.20
 
     # =============================================================
@@ -566,16 +613,21 @@ class MatchingEngine:
             2,
         )
 
+    # =============================================================
+    # Langues
+    # =============================================================
+
     @classmethod
     def _match_languages(
-            cls,
-            cv_languages: list[str],
-            job_languages: list[str],
+        cls,
+        cv_languages: list[str],
+        job_languages: list[str],
     ) -> tuple[
         float,
         list[str],
         list[str],
     ]:
+
         if not job_languages:
             return 0.0, [], []
 
@@ -604,8 +656,11 @@ class MatchingEngine:
         total_score = 0.0
 
         for requirement in normalized_job:
-            candidate = cv_by_language.get(
-                requirement.language
+
+            candidate = (
+                cv_by_language.get(
+                    requirement.language
+                )
             )
 
             if candidate is None:
@@ -630,32 +685,42 @@ class MatchingEngine:
             # la langue suffit.
             if requirement_level is None:
                 total_score += 1.0
+
                 matched.append(
                     requirement.language
                 )
+
                 continue
 
-            # Langue présente mais niveau candidat inconnu.
+            # Langue présente mais niveau
+            # candidat inconnu.
             if candidate_level is None:
                 total_score += 0.70
+
                 matched.append(
                     requirement.language
                 )
+
                 continue
 
             # Niveau suffisant ou supérieur.
-            if candidate_level >= requirement_level:
+            if (
+                candidate_level
+                >= requirement_level
+            ):
                 total_score += 1.0
+
                 matched.append(
                     requirement.language
                 )
+
                 continue
 
             # Niveau inférieur :
             # score proportionnel.
             total_score += (
-                    candidate_level
-                    / requirement_level
+                candidate_level
+                / requirement_level
             )
 
             matched.append(
@@ -663,12 +728,16 @@ class MatchingEngine:
             )
 
         score = (
-                total_score
-                / len(normalized_job)
+            total_score
+            / len(normalized_job)
         )
 
         return (
             score,
-            sorted(set(matched)),
-            sorted(set(missing)),
+            sorted(
+                set(matched)
+            ),
+            sorted(
+                set(missing)
+            ),
         )

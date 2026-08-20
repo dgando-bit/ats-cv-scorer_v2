@@ -744,3 +744,77 @@ def test_matching_engine_missing_language():
         result.missing_languages
         == ["anglais"]
     )
+
+def test_french_can_be_inferred_from_french_cv():
+    cv = CV(
+        candidate_name="John Doe",
+        title="Machine Learning Engineer",
+        experiences=[
+            Experience(
+                company="Entreprise",
+                role="Développeur Back-end",
+                start_date="2021",
+                end_date="2025",
+                description=[
+                    "Développement d'applications",
+                    "Conception de systèmes",
+                ],
+            ),
+        ],
+        education=[
+            Education(
+                institution=(
+                    "Université française"
+                ),
+                degree=(
+                    "Master informatique"
+                ),
+                year="2021",
+            ),
+        ],
+        skills=[],
+        tools=[],
+        languages=[
+            "Anglais (B2)",
+            "LSF (C2)",
+        ],
+    )
+
+    job = JobOffer(
+        id="1",
+        title="Machine Learning Engineer",
+        description="",
+        skills=[],
+        tools=[],
+        languages=[
+            "French (C1)",
+            "English (B2)",
+        ],
+    )
+
+    result = (
+        MatchingEngine()
+        .match(
+            cv,
+            job,
+        )
+    )
+
+    # English B2 = 100 %
+    # Français inféré sans niveau = 70 %
+    #
+    # (100 + 70) / 2 = 85 %
+    assert (
+        result.details.languages
+        == 85.0
+    )
+
+    assert result.matched_languages == [
+        "anglais",
+        "français",
+    ]
+
+    assert (
+        result.missing_languages
+        == []
+    )
