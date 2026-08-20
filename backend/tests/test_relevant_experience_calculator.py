@@ -1,11 +1,14 @@
-from app.models.cv import CV, Contact, Experience
+from app.models.cv import (
+    CV,
+    Contact,
+    Experience,
+)
 from app.services.matching.relevant_experience_calculator import (
     RelevantExperienceCalculator,
 )
 
 
 def test_calculate_relevant_experience_years():
-
     cv = CV(
         candidate_name="John Doe",
         title="Machine Learning Engineer",
@@ -38,7 +41,9 @@ def test_calculate_relevant_experience_years():
         languages=[],
     )
 
-    calculator = RelevantExperienceCalculator()
+    calculator = (
+        RelevantExperienceCalculator()
+    )
 
     years = calculator.calculate(
         cv=cv,
@@ -50,8 +55,8 @@ def test_calculate_relevant_experience_years():
 
     assert years == 2.0
 
-def test_calculate_relevant_experience_across_multiple_jobs():
 
+def test_calculate_relevant_experience_across_multiple_jobs():
     cv = CV(
         candidate_name="John Doe",
         title="AI Engineer",
@@ -84,7 +89,9 @@ def test_calculate_relevant_experience_across_multiple_jobs():
         languages=[],
     )
 
-    calculator = RelevantExperienceCalculator()
+    calculator = (
+        RelevantExperienceCalculator()
+    )
 
     years = calculator.calculate(
         cv=cv,
@@ -95,8 +102,8 @@ def test_calculate_relevant_experience_across_multiple_jobs():
 
     assert years == 4.0
 
-def test_calculate_relevant_experience_returns_zero():
 
+def test_calculate_relevant_experience_returns_zero():
     cv = CV(
         candidate_name="John Doe",
         title="Developer",
@@ -120,12 +127,93 @@ def test_calculate_relevant_experience_returns_zero():
         languages=[],
     )
 
-    calculator = RelevantExperienceCalculator()
+    calculator = (
+        RelevantExperienceCalculator()
+    )
 
     years = calculator.calculate(
         cv=cv,
         required_terms=[
             "machine learning",
+        ],
+    )
+
+    assert years == 0.0
+
+
+def test_ml_role_counts_for_related_ml_requirements():
+    cv = CV(
+        candidate_name="John Doe",
+        title="Machine Learning Engineer",
+        contact=Contact(),
+        profile="",
+        experiences=[
+            Experience(
+                company="AI Corp",
+                role="Machine Learning Engineer",
+                start_date="2024",
+                end_date="2026",
+                description=[
+                    "Développement de solutions IA."
+                ],
+            ),
+        ],
+        education=[],
+        skills=[],
+        soft_skills=[],
+        tools=[],
+        languages=[],
+    )
+
+    calculator = (
+        RelevantExperienceCalculator()
+    )
+
+    years = calculator.calculate(
+        cv=cv,
+        required_terms=[
+            "feature engineering",
+            "model deployment",
+            "forecasting",
+        ],
+    )
+
+    assert years == 2.0
+
+
+def test_ml_role_does_not_match_unrelated_backend_requirements():
+    cv = CV(
+        candidate_name="John Doe",
+        title="Machine Learning Engineer",
+        contact=Contact(),
+        profile="",
+        experiences=[
+            Experience(
+                company="AI Corp",
+                role="Machine Learning Engineer",
+                start_date="2024",
+                end_date="2026",
+                description=[
+                    "Machine Learning models."
+                ],
+            ),
+        ],
+        education=[],
+        skills=[],
+        soft_skills=[],
+        tools=[],
+        languages=[],
+    )
+
+    calculator = (
+        RelevantExperienceCalculator()
+    )
+
+    years = calculator.calculate(
+        cv=cv,
+        required_terms=[
+            "REST API",
+            "PostgreSQL",
         ],
     )
 
