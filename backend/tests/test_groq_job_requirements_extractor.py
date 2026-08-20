@@ -7,7 +7,10 @@ from app.services.llm.groq_job_requirements_extractor import (
 
 
 class FakeCompletions:
-    def create(self, **kwargs):
+    def create(
+        self,
+        **kwargs,
+    ):
         return SimpleNamespace(
             choices=[
                 SimpleNamespace(
@@ -15,8 +18,8 @@ class FakeCompletions:
                         content="""
 {
   "hard_skills": [
-    "machine learning",
-    "feature engineering"
+    "Machine Learning",
+    "RAG"
   ],
   "tools": [
     "Python",
@@ -27,13 +30,14 @@ class FakeCompletions:
   ],
   "languages": [
     {
-      "language": "anglais",
+      "language": "English",
       "level": "B2"
     }
   ],
   "experience": {
     "min_years": 2,
-    "max_years": 4
+    "max_years": 4,
+    "context": "Machine Learning"
   },
   "education_level": "Bac+5",
   "certifications": [],
@@ -56,24 +60,29 @@ class FakeClient:
 
 
 def test_extract_job_requirements():
-    extractor = GroqJobRequirementsExtractor(
-        client=FakeClient(),
-        model="fake-model",
+    extractor = (
+        GroqJobRequirementsExtractor(
+            client=FakeClient(),
+            model="fake-model",
+        )
     )
 
     job = JobOffer(
         title="AI Engineer",
         description=(
-            "Développer des modèles de machine learning "
-            "et les mettre en production."
+            "Développer des modèles de "
+            "machine learning et les mettre "
+            "en production."
         ),
     )
 
-    result = extractor.extract(job)
+    result = extractor.extract(
+        job
+    )
 
     assert result.hard_skills == [
-        "machine learning",
-        "feature engineering",
+        "Machine Learning",
+        "RAG",
     ]
 
     assert result.tools == [
@@ -81,17 +90,40 @@ def test_extract_job_requirements():
         "AWS",
     ]
 
-    assert result.experience.min_years == 2
-    assert result.experience.max_years == 4
+    assert (
+        result.experience.min_years
+        == 2
+    )
 
-    assert result.education_level == "Bac+5"
+    assert (
+        result.experience.max_years
+        == 4
+    )
+
+    assert (
+        result.experience.context
+        == "Machine Learning"
+    )
+
+    assert (
+        result.education_level
+        == "Bac+5"
+    )
 
     assert (
         result.languages[0].language
-        == "anglais"
+        == "English"
     )
 
     assert (
         result.languages[0].level
         == "B2"
     )
+
+    assert result.soft_skills == [
+        "autonomie",
+    ]
+
+    assert result.responsibilities == [
+        "Développer des modèles ML",
+    ]

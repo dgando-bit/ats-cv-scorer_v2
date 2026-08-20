@@ -81,17 +81,15 @@ class FakeRequirementsExtractor:
         if job.id == "2":
             return JobRequirements(
                 hard_skills=[
-                    "python",
-                    "api development",
+                    "Python",
                 ],
-                tools=[
-                    "FastAPI",
-                ],
+                tools=[],
                 soft_skills=[],
                 languages=[],
                 experience=ExperienceRequirement(
                     min_years=2,
                     max_years=4,
+                    context="Backend development",
                 ),
                 education_level="Bac+5",
                 certifications=[],
@@ -102,7 +100,7 @@ class FakeRequirementsExtractor:
 
         return JobRequirements(
             hard_skills=[
-                "frontend development",
+                "Frontend development",
             ],
             tools=[
                 "React",
@@ -112,6 +110,7 @@ class FakeRequirementsExtractor:
             experience=ExperienceRequirement(
                 min_years=None,
                 max_years=None,
+                context=None,
             ),
             education_level=None,
             certifications=[],
@@ -162,6 +161,7 @@ class FakeExtractor:
                 "fallback-skill",
             ],
             tools=[],
+            soft_skills=[],
             languages=[],
             experience_required=None,
             education_required=None,
@@ -307,13 +307,10 @@ def test_job_search_pipeline_uses_llm_relevance():
     )
 
     assert (
-        "python"
-        in result.jobs[0].job.skills
-    )
-
-    assert (
-        "FastAPI"
-        in result.jobs[0].job.tools
+        result.jobs[0]
+        .job
+        .skills
+        == ["Python"]
     )
 
 

@@ -11,8 +11,8 @@ from app.models.job_requirements import (
 def test_job_requirements():
     requirements = JobRequirements(
         hard_skills=[
-            "machine learning",
-            "feature engineering",
+            "Machine Learning",
+            "RAG",
         ],
         tools=[
             "Python",
@@ -23,13 +23,14 @@ def test_job_requirements():
         ],
         languages=[
             LanguageRequirement(
-                language="anglais",
+                language="English",
                 level="B2",
-            )
+            ),
         ],
         experience=ExperienceRequirement(
             min_years=2,
             max_years=4,
+            context="Machine Learning",
         ),
         education_level="Bac+5",
         certifications=[],
@@ -39,8 +40,8 @@ def test_job_requirements():
     )
 
     assert requirements.hard_skills == [
-        "machine learning",
-        "feature engineering",
+        "Machine Learning",
+        "RAG",
     ]
 
     assert requirements.tools == [
@@ -48,16 +49,45 @@ def test_job_requirements():
         "AWS",
     ]
 
-    assert requirements.languages[0].language == (
-        "anglais"
+    assert requirements.soft_skills == [
+        "autonomie",
+    ]
+
+    assert (
+        requirements.languages[0].language
+        == "English"
     )
 
-    assert requirements.languages[0].level == "B2"
+    assert (
+        requirements.languages[0].level
+        == "B2"
+    )
 
-    assert requirements.experience.min_years == 2
-    assert requirements.experience.max_years == 4
+    assert (
+        requirements.experience.min_years
+        == 2
+    )
 
-    assert requirements.education_level == "Bac+5"
+    assert (
+        requirements.experience.max_years
+        == 4
+    )
+
+    assert (
+        requirements.experience.context
+        == "Machine Learning"
+    )
+
+    assert (
+        requirements.education_level
+        == "Bac+5"
+    )
+
+    assert requirements.certifications == []
+
+    assert requirements.responsibilities == [
+        "Développer des modèles ML",
+    ]
 
 
 def test_job_requirements_can_represent_missing_requirements():
@@ -69,6 +99,7 @@ def test_job_requirements_can_represent_missing_requirements():
         experience=ExperienceRequirement(
             min_years=None,
             max_years=None,
+            context=None,
         ),
         education_level=None,
         certifications=[],
@@ -79,6 +110,8 @@ def test_job_requirements_can_represent_missing_requirements():
     assert requirements.tools == []
     assert requirements.soft_skills == []
     assert requirements.languages == []
+    assert requirements.certifications == []
+    assert requirements.responsibilities == []
 
     assert (
         requirements.experience.min_years
@@ -90,11 +123,36 @@ def test_job_requirements_can_represent_missing_requirements():
         is None
     )
 
-    assert requirements.education_level is None
+    assert (
+        requirements.experience.context
+        is None
+    )
+
+    assert (
+        requirements.education_level
+        is None
+    )
+
 
 def test_experience_cannot_be_negative():
-    with pytest.raises(ValidationError):
+    with pytest.raises(
+        ValidationError
+    ):
         ExperienceRequirement(
             min_years=-1,
             max_years=None,
+            context=None,
         )
+
+
+def test_experience_context_is_preserved():
+    requirement = ExperienceRequirement(
+        min_years=2,
+        max_years=3,
+        context="Lead Machine Learning",
+    )
+
+    assert (
+        requirement.context
+        == "Lead Machine Learning"
+    )

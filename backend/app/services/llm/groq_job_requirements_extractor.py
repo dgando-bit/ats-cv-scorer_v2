@@ -7,7 +7,9 @@ from app.models.job import JobOffer
 from app.models.job_requirements import (
     JobRequirements,
 )
-
+from app.services.jobs.job_requirements_normalizer import (
+    JobRequirementsNormalizer,
+)
 
 class GroqJobRequirementsExtractor:
     def __init__(
@@ -86,6 +88,10 @@ JOB DESCRIPTION:
 
         data = json.loads(raw_content)
 
-        return JobRequirements.model_validate(
+        requirements = JobRequirements.model_validate(
             data
+        )
+
+        return JobRequirementsNormalizer.normalize(
+            requirements
         )

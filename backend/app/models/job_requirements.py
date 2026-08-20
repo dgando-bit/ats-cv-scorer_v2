@@ -11,9 +11,6 @@ class LanguageRequirement(BaseModel):
     )
 
     language: str
-
-    # Obligatoire dans le JSON,
-    # mais peut valoir null.
     level: str | None
 
 
@@ -22,8 +19,6 @@ class ExperienceRequirement(BaseModel):
         extra="forbid"
     )
 
-    # Obligatoires dans le JSON,
-    # mais peuvent valoir null.
     min_years: float | None = Field(
         ge=0,
     )
@@ -32,6 +27,8 @@ class ExperienceRequirement(BaseModel):
         ge=0,
     )
 
+    context: str | None
+
 
 class JobRequirements(BaseModel):
     model_config = ConfigDict(
@@ -39,14 +36,9 @@ class JobRequirements(BaseModel):
     )
 
     hard_skills: list[str]
-
     tools: list[str]
-
     soft_skills: list[str]
-
-    languages: list[
-        LanguageRequirement
-    ]
+    languages: list[LanguageRequirement]
 
     experience: ExperienceRequirement
 

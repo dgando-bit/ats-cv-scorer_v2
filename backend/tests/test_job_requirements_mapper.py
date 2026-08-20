@@ -23,7 +23,7 @@ def test_map_job_requirements_to_job_offer():
 
     requirements = JobRequirements(
         hard_skills=[
-            "machine learning",
+            "Machine Learning",
             "Python",
         ],
         tools=[
@@ -45,6 +45,7 @@ def test_map_job_requirements_to_job_offer():
         experience=ExperienceRequirement(
             min_years=2,
             max_years=4,
+            context="Machine Learning",
         ),
         education_level="Master",
         certifications=[],
@@ -53,9 +54,11 @@ def test_map_job_requirements_to_job_offer():
         ],
     )
 
-    result = JobRequirementsMapper.to_job_offer(
-        source_job=source_job,
-        requirements=requirements,
+    result = (
+        JobRequirementsMapper.to_job_offer(
+            source_job=source_job,
+            requirements=requirements,
+        )
     )
 
     assert result.id == "123"
@@ -63,10 +66,21 @@ def test_map_job_requirements_to_job_offer():
     assert result.company == "ACME"
     assert result.location == "75 - Paris"
     assert result.contract_type == "CDI"
-    assert result.description == "Test description"
 
-    assert "machine learning" in result.skills
-    assert "Python" in result.skills
+    assert (
+        result.description
+        == "Test description"
+    )
+
+    assert (
+        "Machine Learning"
+        in result.skills
+    )
+
+    assert (
+        "Python"
+        in result.skills
+    )
 
     assert result.tools == [
         "AWS",
@@ -116,15 +130,18 @@ def test_map_open_ended_experience():
         experience=ExperienceRequirement(
             min_years=3,
             max_years=None,
+            context="Backend development",
         ),
         education_level=None,
         certifications=[],
         responsibilities=[],
     )
 
-    result = JobRequirementsMapper.to_job_offer(
-        source_job=source_job,
-        requirements=requirements,
+    result = (
+        JobRequirementsMapper.to_job_offer(
+            source_job=source_job,
+            requirements=requirements,
+        )
     )
 
     assert (
@@ -147,15 +164,21 @@ def test_map_missing_experience():
         experience=ExperienceRequirement(
             min_years=None,
             max_years=None,
+            context=None,
         ),
         education_level=None,
         certifications=[],
         responsibilities=[],
     )
 
-    result = JobRequirementsMapper.to_job_offer(
-        source_job=source_job,
-        requirements=requirements,
+    result = (
+        JobRequirementsMapper.to_job_offer(
+            source_job=source_job,
+            requirements=requirements,
+        )
     )
 
-    assert result.experience_required is None
+    assert (
+        result.experience_required
+        is None
+    )

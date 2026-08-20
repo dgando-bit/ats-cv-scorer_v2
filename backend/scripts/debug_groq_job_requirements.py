@@ -7,7 +7,7 @@ from app.services.llm.groq_job_requirements_extractor import (
 )
 
 
-JOB_ID = "5857874"
+JOB_ID = "212CXFZ"
 
 
 def main() -> None:
