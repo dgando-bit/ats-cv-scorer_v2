@@ -11,7 +11,10 @@ class JobRequirementsMapper:
         requirements: JobRequirements,
     ) -> JobOffer:
         languages = [
-            requirement.language
+            JobRequirementsMapper._format_language(
+                requirement.language,
+                requirement.level,
+            )
             for requirement in requirements.languages
         ]
 
@@ -82,3 +85,13 @@ class JobRequirementsMapper:
             return str(int(value))
 
         return str(value)
+
+    @staticmethod
+    def _format_language(
+            language: str,
+            level: str | None,
+    ) -> str:
+        if not level:
+            return language
+
+        return f"{language} ({level})"

@@ -7,12 +7,15 @@ class Contact(BaseModel):
     location: str | None = None
     website: str | None = None
 
+
 class Experience(BaseModel):
     company: str | None = None
     role: str | None = None
     start_date: str | None = None
     end_date: str | None = None
-    description: list[str] = Field(default_factory=list)
+    description: list[str] = Field(
+        default_factory=list
+    )
 
 
 class Education(BaseModel):
@@ -26,7 +29,9 @@ class CV(BaseModel):
     candidate_name: str | None = None
     title: str | None = None
 
-    contact: Contact = Field(default_factory=Contact)
+    contact: Contact = Field(
+        default_factory=Contact
+    )
 
     profile: str | None = None
 

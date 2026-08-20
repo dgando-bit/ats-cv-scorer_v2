@@ -608,3 +608,139 @@ def test_dynamic_score_returns_zero_when_no_category_is_active():
     )
 
     assert score == 0.0
+
+def test_matching_engine_language_aliases():
+    cv = CV(
+        candidate_name="John Doe",
+        title="Developer",
+        experiences=[],
+        education=[],
+        skills=[],
+        soft_skills=[],
+        tools=[],
+        languages=[
+            "English (C1)",
+        ],
+    )
+
+    job = JobOffer(
+        title="Developer",
+        description="",
+        languages=[
+            "Anglais (B2)",
+        ],
+    )
+
+    result = MatchingEngine().match(
+        cv,
+        job,
+    )
+
+    assert (
+        result.details.languages
+        == 100.0
+    )
+
+
+def test_matching_engine_partial_language_level():
+    cv = CV(
+        candidate_name="John Doe",
+        title="Developer",
+        experiences=[],
+        education=[],
+        skills=[],
+        soft_skills=[],
+        tools=[],
+        languages=[
+            "Anglais (B1)",
+        ],
+    )
+
+    job = JobOffer(
+        title="Developer",
+        description="",
+        languages=[
+            "English (B2)",
+        ],
+    )
+
+    result = MatchingEngine().match(
+        cv,
+        job,
+    )
+
+    assert (
+        result.details.languages
+        == 75.0
+    )
+
+
+def test_matching_engine_language_without_candidate_level():
+    cv = CV(
+        candidate_name="John Doe",
+        title="Developer",
+        experiences=[],
+        education=[],
+        skills=[],
+        soft_skills=[],
+        tools=[],
+        languages=[
+            "English",
+        ],
+    )
+
+    job = JobOffer(
+        title="Developer",
+        description="",
+        languages=[
+            "Anglais (B2)",
+        ],
+    )
+
+    result = MatchingEngine().match(
+        cv,
+        job,
+    )
+
+    assert (
+        result.details.languages
+        == 70.0
+    )
+
+
+def test_matching_engine_missing_language():
+    cv = CV(
+        candidate_name="John Doe",
+        title="Developer",
+        experiences=[],
+        education=[],
+        skills=[],
+        soft_skills=[],
+        tools=[],
+        languages=[
+            "Français (C2)",
+        ],
+    )
+
+    job = JobOffer(
+        title="Developer",
+        description="",
+        languages=[
+            "English (B2)",
+        ],
+    )
+
+    result = MatchingEngine().match(
+        cv,
+        job,
+    )
+
+    assert (
+        result.details.languages
+        == 0.0
+    )
+
+    assert (
+        result.missing_languages
+        == ["anglais"]
+    )

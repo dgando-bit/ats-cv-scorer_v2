@@ -77,8 +77,8 @@ def test_map_job_requirements_to_job_offer():
     ]
 
     assert result.languages == [
-        "French",
-        "English",
+        "French (native)",
+        "English (B2)",
     ]
 
     assert (

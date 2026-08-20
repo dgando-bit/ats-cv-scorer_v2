@@ -11,7 +11,9 @@ from app.services.matching.candidate_knowledge_extractor import (
 from app.services.matching.relevant_experience_calculator import (
     RelevantExperienceCalculator,
 )
-
+from app.services.matching.language_normalizer import (
+    LanguageNormalizer,
+)
 
 class MatchingEngine:
 
@@ -109,7 +111,7 @@ class MatchingEngine:
             languages_score,
             matched_languages,
             missing_languages,
-        ) = self._match_terms(
+        ) = self._match_languages(
             cv.languages,
             job.languages,
         )
@@ -562,4 +564,111 @@ class MatchingEngine:
             weighted_sum
             / active_weight,
             2,
+        )
+
+    @classmethod
+    def _match_languages(
+            cls,
+            cv_languages: list[str],
+            job_languages: list[str],
+    ) -> tuple[
+        float,
+        list[str],
+        list[str],
+    ]:
+        if not job_languages:
+            return 0.0, [], []
+
+        normalized_cv = [
+            LanguageNormalizer.normalize(
+                language
+            )
+            for language in cv_languages
+        ]
+
+        normalized_job = [
+            LanguageNormalizer.normalize(
+                language
+            )
+            for language in job_languages
+        ]
+
+        cv_by_language = {
+            item.language: item
+            for item in normalized_cv
+        }
+
+        matched: list[str] = []
+        missing: list[str] = []
+
+        total_score = 0.0
+
+        for requirement in normalized_job:
+            candidate = cv_by_language.get(
+                requirement.language
+            )
+
+            if candidate is None:
+                missing.append(
+                    requirement.language
+                )
+                continue
+
+            requirement_level = (
+                LanguageNormalizer.level_value(
+                    requirement.level
+                )
+            )
+
+            candidate_level = (
+                LanguageNormalizer.level_value(
+                    candidate.level
+                )
+            )
+
+            # Aucun niveau demandé :
+            # la langue suffit.
+            if requirement_level is None:
+                total_score += 1.0
+                matched.append(
+                    requirement.language
+                )
+                continue
+
+            # Langue présente mais niveau candidat inconnu.
+            if candidate_level is None:
+                total_score += 0.70
+                matched.append(
+                    requirement.language
+                )
+                continue
+
+            # Niveau suffisant ou supérieur.
+            if candidate_level >= requirement_level:
+                total_score += 1.0
+                matched.append(
+                    requirement.language
+                )
+                continue
+
+            # Niveau inférieur :
+            # score proportionnel.
+            total_score += (
+                    candidate_level
+                    / requirement_level
+            )
+
+            matched.append(
+                requirement.language
+            )
+
+        score = (
+                total_score
+                / len(normalized_job)
+        )
+
+        return (
+            score,
+            sorted(set(matched)),
+            sorted(set(missing)),
         )
