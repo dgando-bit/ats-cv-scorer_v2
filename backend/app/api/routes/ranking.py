@@ -6,16 +6,19 @@ from fastapi import (
     Depends,
     File,
     Form,
-    HTTPException,
     UploadFile,
 )
 
-from app.api.dependencies import get_job_provider
+from app.api.dependencies import (
+    get_job_search_pipeline,
+)
 from app.models.ranking import JobRankingResult
-from app.providers.base import JobProvider
 from app.services.cv.cv_extractor import CVExtractor
-from app.services.matching.job_ranking_service import JobRankingService
+from app.services.matching.job_search_pipeline import (
+    JobSearchPipeline,
+)
 from app.utils.file_validation import read_valid_pdf
+
 
 router = APIRouter(
     prefix="/api/jobs",
@@ -23,7 +26,6 @@ router = APIRouter(
 )
 
 cv_extractor = CVExtractor()
-ranking_service = JobRankingService()
 
 
 @router.post(
@@ -36,7 +38,9 @@ async def rank_jobs(
     location: str | None = Form(None),
     insee_code: str | None = Form(None),
     limit: int = Form(10),
-    provider: JobProvider = Depends(get_job_provider),
+    pipeline: JobSearchPipeline = Depends(
+        get_job_search_pipeline
+    ),
 ) -> JobRankingResult:
     temp_path: str | None = None
 
@@ -44,10 +48,9 @@ async def rank_jobs(
         content = await read_valid_pdf(file)
 
         with tempfile.NamedTemporaryFile(
-                delete=False,
-                suffix=".pdf",
+            delete=False,
+            suffix=".pdf",
         ) as temp_file:
-
             temp_file.write(content)
             temp_path = temp_file.name
 
@@ -55,22 +58,25 @@ async def rank_jobs(
             temp_path
         )
 
-        jobs = provider.search_jobs(
+        return pipeline.search_and_rank(
+            cv=cv,
             keywords=keywords,
             location=location,
             insee_code=insee_code,
-            limit=limit,
-        )
-
-        return ranking_service.rank(
-            cv=cv,
-            jobs=jobs,
-            keywords=keywords,
+            provider_limit=max(
+                50,
+                limit,
+            ),
+            retrieval_top_k=max(
+                20,
+                limit,
+            ),
+            final_limit=limit,
         )
 
     finally:
         if (
-                temp_path
-                and os.path.exists(temp_path)
+            temp_path
+            and os.path.exists(temp_path)
         ):
             os.remove(temp_path)

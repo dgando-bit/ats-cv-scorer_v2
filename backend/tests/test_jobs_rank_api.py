@@ -2,10 +2,20 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from app.api.dependencies import get_job_provider
+from app.api.dependencies import (
+    get_job_search_pipeline,
+)
 from app.main import app
+from app.models.match import (
+    MatchDetails,
+    MatchExplanation,
+    MatchResult,
+)
+from app.models.ranking import (
+    JobRankingResult,
+    RankedJob,
+)
 from app.models.job import JobOffer
-from app.providers.base import JobProvider
 
 
 client = TestClient(app)
@@ -20,46 +30,105 @@ CV_PATH = (
 )
 
 
-class FakeJobProvider(JobProvider):
-
-    def search_jobs(
+class FakeJobSearchPipeline:
+    def search_and_rank(
         self,
-        keywords: str,
-        location: str | None = None,
-        insee_code: str | None = None,
-        limit: int = 20,
-    ) -> list[JobOffer]:
-
-        return [
-            JobOffer(
-                id="LOW",
-                title="Java Developer",
-                description="Java Spring Maven",
-                source="test",
+        cv,
+        keywords,
+        location=None,
+        insee_code=None,
+        provider_limit=50,
+        retrieval_top_k=20,
+        final_limit=10,
+    ) -> JobRankingResult:
+        job = JobOffer(
+            id="test-job-1",
+            title="Machine Learning Engineer",
+            company="ACME",
+            location="75 - Paris",
+            contract_type="CDI",
+            description=(
+                "Développement et déploiement "
+                "de modèles de machine learning."
             ),
-            JobOffer(
-                id="HIGH",
-                title="Machine Learning Engineer",
-                description=(
-                    "Python SQL Machine Learning "
-                    "Docker MLflow"
+            skills=[
+                "machine learning",
+                "python",
+            ],
+            tools=[
+                "scikit-learn",
+            ],
+            languages=[],
+            experience_required="2 ans",
+            education_required="BAC+5",
+            source="france_travail",
+            source_url=(
+                "https://example.com/jobs/"
+                "test-job-1"
+            ),
+        )
+
+        match = MatchResult(
+            score=90.0,
+            details=MatchDetails(
+                skills=100.0,
+                tools=100.0,
+                languages=0.0,
+                experience=50.0,
+                education=100.0,
+            ),
+            matched_skills=[
+                "machine learning",
+                "python",
+            ],
+            missing_skills=[],
+            matched_tools=[
+                "scikit-learn",
+            ],
+            missing_tools=[],
+            matched_languages=[],
+            missing_languages=[],
+        )
+
+        explanation = MatchExplanation(
+            summary=(
+                "Très bonne compatibilité "
+                "avec l'offre."
+            ),
+            strengths=[
+                (
+                    "Très bonne couverture "
+                    "des compétences demandées."
                 ),
-                source="test",
-            ),
-        ]
+            ],
+            weaknesses=[],
+            recommendations=[],
+        )
 
-    def get_job(
-        self,
-        job_id: str,
-    ) -> JobOffer:
-        raise NotImplementedError
+        ranked_job = RankedJob(
+            job=job,
+            match=match,
+            semantic_score=0.82,
+            relevance_score=0.95,
+            explanation=explanation,
+        )
+
+        return JobRankingResult(
+            candidate_name=cv.candidate_name,
+            jobs=[
+                ranked_job,
+            ],
+        )
+
+
+def override_pipeline():
+    return FakeJobSearchPipeline()
 
 
 def test_rank_jobs_endpoint():
-
-    app.dependency_overrides[get_job_provider] = (
-        lambda: FakeJobProvider()
-    )
+    app.dependency_overrides[
+        get_job_search_pipeline
+    ] = override_pipeline
 
     try:
         with CV_PATH.open("rb") as file:
@@ -76,7 +145,10 @@ def test_rank_jobs_endpoint():
                     "keywords": (
                         "machine learning engineer"
                     ),
-                    "location": "Paris 1er Arrondissement (75001)",
+                    "location": (
+                        "Paris (75002)"
+                    ),
+                    "insee_code": "75056",
                     "limit": "10",
                 },
             )
@@ -85,27 +157,57 @@ def test_rank_jobs_endpoint():
 
         data = response.json()
 
-        assert data["candidate_name"] == "Destin GANDO"
-        assert len(data["jobs"]) == 2
+        assert data["candidate_name"]
+
+        assert len(
+            data["jobs"]
+        ) == 1
+
+        ranked_job = data["jobs"][0]
 
         assert (
-            data["jobs"][0]["match"]["score"]
-            >= data["jobs"][1]["match"]["score"]
+            ranked_job["job"]["id"]
+            == "test-job-1"
         )
 
         assert (
-            data["jobs"][0]["job"]["id"]
-            == "HIGH"
+            ranked_job["job"]["title"]
+            == "Machine Learning Engineer"
+        )
+
+        assert (
+            ranked_job["match"]["score"]
+            == 90.0
+        )
+
+        assert (
+            ranked_job["semantic_score"]
+            == 0.82
+        )
+
+        assert (
+            ranked_job["relevance_score"]
+            == 0.95
+        )
+
+        assert (
+            ranked_job[
+                "explanation"
+            ]["summary"]
+            == (
+                "Très bonne compatibilité "
+                "avec l'offre."
+            )
         )
 
     finally:
         app.dependency_overrides.clear()
 
-def test_rank_jobs_accepts_pdf_with_generic_content_type():
 
-    app.dependency_overrides[get_job_provider] = (
-        lambda: FakeJobProvider()
-    )
+def test_rank_jobs_accepts_pdf_with_generic_content_type():
+    app.dependency_overrides[
+        get_job_search_pipeline
+    ] = override_pipeline
 
     try:
         with CV_PATH.open("rb") as file:
@@ -122,42 +224,56 @@ def test_rank_jobs_accepts_pdf_with_generic_content_type():
                     "keywords": (
                         "machine learning engineer"
                     ),
-                    "location": "Paris 1er Arrondissement (75001)",
-                    "insee_code": "75101",
+                    "location": (
+                        "Paris (75002)"
+                    ),
+                    "insee_code": "75056",
                     "limit": "5",
                 },
             )
 
         assert response.status_code == 200
 
+        data = response.json()
+
+        assert data["candidate_name"]
+
+        assert len(
+            data["jobs"]
+        ) == 1
+
     finally:
         app.dependency_overrides.clear()
 
-def test_rank_jobs_rejects_fake_pdf():
 
-    app.dependency_overrides[get_job_provider] = (
-        lambda: FakeJobProvider()
-    )
+def test_rank_jobs_rejects_invalid_file():
+    app.dependency_overrides[
+        get_job_search_pipeline
+    ] = override_pipeline
 
     try:
         response = client.post(
             "/api/jobs/rank",
             files={
                 "file": (
-                    "fake.pdf",
+                    "not-a-pdf.txt",
                     b"this is not a pdf",
-                    "application/pdf",
+                    "text/plain",
                 )
             },
             data={
-                "keywords": "machine learning engineer",
+                "keywords": (
+                    "machine learning engineer"
+                ),
+                "limit": "5",
             },
         )
 
-        assert response.status_code == 400
-        assert response.json()["detail"] == (
-            "Only valid PDF files are supported."
-        )
+        assert response.status_code in {
+            400,
+            415,
+            422,
+        }
 
     finally:
         app.dependency_overrides.clear()

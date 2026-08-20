@@ -101,3 +101,24 @@ Matching CV ↔ offre
    ↓
 Score + compétences manquantes + recommandations
 ```
+
+```
+                LLM
+                 │
+           extraction
+                 ↓
+        données structurées
+                 │
+       ┌─────────┴─────────┐
+       ▼                   ▼
+MatchingEngine         Embeddings
+déterministe           sémantique
+       │                   │
+       ▼                   ▼
+match_score       relevance_score
+```
+Le LLM comprend et structure.
+
+Les embeddings mesurent la proximité sémantique.
+
+Notre code calcule les critères objectifs.
