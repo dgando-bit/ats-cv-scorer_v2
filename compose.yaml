@@ -8,11 +8,30 @@ services:
 
     ports:
       - "8000:8000"
-    
+
     env_file:
       - .env
 
     environment:
       PYTHONUNBUFFERED: "1"
+
+    restart: unless-stopped
+
+
+  frontend_ats:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+
+    container_name: ats-frontend
+
+    ports:
+      - "5173:5173"
+
+    environment:
+      VITE_API_URL: "http://localhost:8000"
+
+    depends_on:
+      - backend_ats
 
     restart: unless-stopped

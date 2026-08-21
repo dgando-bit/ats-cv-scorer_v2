@@ -16,21 +16,45 @@ import SearchForm, {
 
 import JobDetails from './components/dashboard/JobDetails'
 import JobList from './components/dashboard/JobList'
+import AnalysisHistory from './components/history/AnalysisHistory'
 import CVProfile from './components/profile/CVProfile'
+import ConfirmDialog from './components/ui/ConfirmDialog'
 
-import type {
-  JobRankingResult,
-} from './types/ranking'
+import {
+  clearAnalysisHistory,
+  deleteAnalysis,
+  getAnalysisHistory,
+  saveAnalysis,
+} from './utils/historyStorage'
 
 import type {
   CV,
 } from './types/cv'
+
+import type {
+  AnalysisHistoryItem,
+} from './types/history'
+
+import type {
+  JobRankingResult,
+} from './types/ranking'
 
 
 type AppView =
     | 'dashboard'
     | 'history'
     | 'profile'
+
+
+type ConfirmationState =
+    | {
+  type: 'delete-analysis'
+  id: string
+}
+    | {
+  type: 'clear-history'
+}
+    | null
 
 
 interface NavigationItem {
@@ -111,16 +135,40 @@ function App() {
   )
 
   const [
+    history,
+    setHistory,
+  ] = useState<AnalysisHistoryItem[]>(
+      () => getAnalysisHistory(),
+  )
+
+  const [
     isMobileMenuOpen,
     setIsMobileMenuOpen,
   ] = useState(false)
+
+  const [
+    isMobileJobDetailsOpen,
+    setIsMobileJobDetailsOpen,
+  ] = useState(false)
+
+  const [
+    confirmation,
+    setConfirmation,
+  ] = useState<ConfirmationState>(
+      null,
+  )
 
 
   async function handleCVUpload(
       file: File,
   ) {
-    setIsCVLoading(true)
-    setCVError(null)
+    setIsCVLoading(
+        true,
+    )
+
+    setCVError(
+        null,
+    )
 
     try {
       const extractedCV =
@@ -132,7 +180,9 @@ function App() {
           extractedCV,
       )
     } catch (error) {
-      console.error(error)
+      console.error(
+          error,
+      )
 
       setCVError(
           error instanceof Error
@@ -143,7 +193,9 @@ function App() {
               ),
       )
     } finally {
-      setIsCVLoading(false)
+      setIsCVLoading(
+          false,
+      )
     }
   }
 
@@ -151,17 +203,20 @@ function App() {
   async function handleSearch(
       values: SearchFormValues,
   ) {
-    setIsLoading(true)
-    setError(null)
+    setIsLoading(
+        true,
+    )
+
+    setError(
+        null,
+    )
 
     /*
-	 * On analyse également le CV afin
-	 * d'alimenter automatiquement
-	 * la vue "CV & Profil".
+	 * On analyse aussi le CV pour alimenter
+	 * automatiquement "CV & Profil".
 	 *
-	 * On ne bloque pas la recherche
-	 * d'offres en attendant cette
-	 * extraction.
+	 * L'extraction est lancée en parallèle
+	 * de la recherche d'offres.
 	 */
     if (!isCVLoading) {
       void handleCVUpload(
@@ -170,15 +225,23 @@ function App() {
     }
 
     try {
-      const data = await rankJobs({
-        file: values.file,
-        keywords: values.keywords,
-        location:
-        values.location?.label,
-        inseeCode:
-        values.location?.insee_code,
-        limit: values.limit,
-      })
+      const data =
+          await rankJobs({
+            file:
+            values.file,
+
+            keywords:
+            values.keywords,
+
+            location:
+            values.location?.label,
+
+            inseeCode:
+            values.location?.insee_code,
+
+            limit:
+            values.limit,
+          })
 
       setResult(
           data,
@@ -187,8 +250,33 @@ function App() {
       setSelectedIndex(
           0,
       )
+
+      setIsMobileJobDetailsOpen(
+          false,
+      )
+
+      saveAnalysis({
+        keywords:
+        values.keywords,
+
+        location:
+            values.location?.label
+            ?? null,
+
+        limit:
+        values.limit,
+
+        result:
+        data,
+      })
+
+      setHistory(
+          getAnalysisHistory(),
+      )
     } catch (error) {
-      console.error(error)
+      console.error(
+          error,
+      )
 
       setError(
           error instanceof Error
@@ -215,6 +303,90 @@ function App() {
 
     setIsMobileMenuOpen(
         false,
+    )
+  }
+
+
+  function handleOpenHistory(
+      item: AnalysisHistoryItem,
+  ) {
+    setResult(
+        item.result,
+    )
+
+    setSelectedIndex(
+        0,
+    )
+
+    setIsMobileJobDetailsOpen(
+        false,
+    )
+
+    changeView(
+        'dashboard',
+    )
+  }
+
+
+  function handleDeleteHistory(
+      id: string,
+  ) {
+    setConfirmation({
+      type:
+          'delete-analysis',
+
+      id,
+    })
+  }
+
+
+  function handleClearHistory() {
+    setConfirmation({
+      type:
+          'clear-history',
+    })
+  }
+
+
+  function handleCancelConfirmation() {
+    setConfirmation(
+        null,
+    )
+  }
+
+
+  function handleConfirmAction() {
+    if (!confirmation) {
+      return
+    }
+
+    if (
+        confirmation.type
+        === 'delete-analysis'
+    ) {
+      const updated =
+          deleteAnalysis(
+              confirmation.id,
+          )
+
+      setHistory(
+          updated,
+      )
+    }
+
+    if (
+        confirmation.type
+        === 'clear-history'
+    ) {
+      clearAnalysisHistory()
+
+      setHistory(
+          [],
+      )
+    }
+
+    setConfirmation(
+        null,
     )
   }
 
@@ -246,15 +418,21 @@ function App() {
             <h2
                 className="
 							text-2xl font-bold
-							tracking-tight text-slate-900
+							tracking-tight
+							text-slate-900
 						"
             >
               Tableau de bord
             </h2>
 
-            <p className="mt-1 text-sm text-slate-500">
-              Recherchez des offres et comparez-les
-              avec votre CV.
+            <p
+                className="
+							mt-1 text-sm
+							text-slate-500
+						"
+            >
+              Recherchez des offres
+              et comparez-les avec votre CV.
             </p>
           </div>
 
@@ -270,13 +448,15 @@ function App() {
           {error && (
               <div
                   className="
-							mt-5 rounded-xl border
-							border-red-200 bg-red-50
-							p-4 text-sm text-red-700
+							mt-5 rounded-xl
+							border border-red-200
+							bg-red-50 p-4
+							text-sm text-red-700
 						"
               >
                 <strong>
-                  Impossible d'analyser les offres.
+                  Impossible d'analyser
+                  les offres.
                 </strong>
 
                 <p className="mt-1">
@@ -289,39 +469,56 @@ function App() {
               <div
                   className="
 							mt-8 flex flex-col
-							items-center justify-center
+							items-center
+							justify-center
 							rounded-2xl border
-							border-slate-200 bg-white
-							px-6 py-20 text-center
+							border-slate-200
+							bg-white px-6
+							py-20 text-center
 							shadow-sm
 						"
               >
                 <div
                     className="
-								h-10 w-10 animate-spin
-								rounded-full border-4
+								h-10 w-10
+								animate-spin
+								rounded-full
+								border-4
 								border-blue-100
 								border-t-blue-600
 							"
                 />
 
-                <h2 className="mt-5 text-lg font-bold">
-                  Analyse des offres en cours
+                <h2
+                    className="
+								mt-5 text-lg
+								font-bold
+							"
+                >
+                  Analyse des offres
+                  en cours
                 </h2>
 
                 <p
                     className="
 								mt-2 max-w-md
-								text-sm text-slate-500
+								text-sm
+								text-slate-500
 							"
                 >
                   Nous recherchons les offres,
-                  analysons leur pertinence et les
-                  comparons avec votre CV.
+                  analysons leur pertinence
+                  et les comparons avec votre CV.
                 </p>
 
-                <p className="mt-4 text-xs text-slate-400">
-                  Cette étape peut prendre quelques secondes.
+                <p
+                    className="
+								mt-4 text-xs
+								text-slate-400
+							"
+                >
+                  Cette étape peut prendre
+                  quelques secondes.
                 </p>
               </div>
           )}
@@ -332,18 +529,30 @@ function App() {
                   <div
                       className="
 								mt-8 rounded-2xl
-								border border-slate-200
+								border
+								border-slate-200
 								bg-white p-12
-								text-center shadow-sm
+								text-center
+								shadow-sm
 							"
                   >
-                    <h2 className="text-lg font-bold">
+                    <h2
+                        className="
+									text-lg font-bold
+								"
+                    >
                       Aucune offre trouvée
                     </h2>
 
-                    <p className="mt-2 text-sm text-slate-500">
-                      Essayez d'autres mots-clés
-                      ou une autre localisation.
+                    <p
+                        className="
+									mt-2 text-sm
+									text-slate-500
+								"
+                    >
+                      Essayez d'autres
+                      mots-clés ou une autre
+                      localisation.
                     </p>
                   </div>
               )}
@@ -351,35 +560,113 @@ function App() {
           {result
               && !isLoading
               && selectedJob && (
-                  <div
-                      className="
-								mt-6 grid gap-6
-								xl:grid-cols-[minmax(360px,0.8fr)_minmax(620px,1.4fr)]
-							"
-                  >
-                    <JobList
-                        jobs={
-                          result.jobs
-                        }
-                        selectedIndex={
-                          selectedIndex
-                        }
-                        onSelect={
-                          setSelectedIndex
-                        }
-                    />
+                  <div className="mt-6">
+                    {/* Mobile / tablette */}
+                    <div className="xl:hidden">
+                      {!isMobileJobDetailsOpen ? (
+                          <JobList
+                              jobs={
+                                result.jobs
+                              }
+                              selectedIndex={
+                                selectedIndex
+                              }
+                              onSelect={
+                                (index) => {
+                                  setSelectedIndex(
+                                      index,
+                                  )
 
+                                  setIsMobileJobDetailsOpen(
+                                      true,
+                                  )
+
+                                  window.scrollTo({
+                                    top: 0,
+                                    behavior:
+                                        'smooth',
+                                  })
+                                }
+                              }
+                          />
+                      ) : (
+                          <div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                  setIsMobileJobDetailsOpen(
+                                      false,
+                                  )
+                                }}
+                                className="
+												mb-4
+												inline-flex
+												items-center
+												gap-2
+												rounded-xl
+												border
+												border-slate-200
+												bg-white
+												px-4 py-2
+												text-sm
+												font-semibold
+												text-slate-700
+												shadow-sm
+												transition
+												hover:bg-slate-50
+											"
+                            >
+											<span
+                                                aria-hidden="true"
+                                            >
+												←
+											</span>
+
+                              Retour aux offres
+                            </button>
+
+                            <JobDetails
+                                rankedJob={
+                                  selectedJob
+                                }
+                            />
+                          </div>
+                      )}
+                    </div>
+
+                    {/* Desktop */}
                     <div
                         className="
-									xl:sticky xl:top-6
-									xl:self-start
+									hidden gap-6
+									xl:grid
+									xl:grid-cols-[minmax(360px,0.8fr)_minmax(620px,1.4fr)]
 								"
                     >
-                      <JobDetails
-                          rankedJob={
-                            selectedJob
+                      <JobList
+                          jobs={
+                            result.jobs
+                          }
+                          selectedIndex={
+                            selectedIndex
+                          }
+                          onSelect={
+                            setSelectedIndex
                           }
                       />
+
+                      <div
+                          className="
+										xl:sticky
+										xl:top-6
+										xl:self-start
+									"
+                      >
+                        <JobDetails
+                            rankedJob={
+                              selectedJob
+                            }
+                        />
+                      </div>
                     </div>
                   </div>
               )}
@@ -389,18 +676,23 @@ function App() {
                   <div
                       className="
 								mt-8 rounded-2xl
-								border border-dashed
+								border
+								border-dashed
 								border-slate-300
-								bg-white px-6 py-16
-								text-center
+								bg-white px-6
+								py-16 text-center
 							"
                   >
                     <div
                         className="
-									mx-auto flex h-14 w-14
-									items-center justify-center
-									rounded-2xl bg-blue-50
-									text-2xl text-blue-600
+									mx-auto flex
+									h-14 w-14
+									items-center
+									justify-center
+									rounded-2xl
+									bg-blue-50
+									text-2xl
+									text-blue-600
 								"
                     >
                       ⌕
@@ -408,7 +700,8 @@ function App() {
 
                     <h3
                         className="
-									mt-5 text-lg font-bold
+									mt-5 text-lg
+									font-bold
 									text-slate-900
 								"
                     >
@@ -417,15 +710,18 @@ function App() {
 
                     <p
                         className="
-									mx-auto mt-2 max-w-md
-									text-sm leading-6
+									mx-auto mt-2
+									max-w-md
+									text-sm
+									leading-6
 									text-slate-500
 								"
                     >
                       Importez votre CV,
-                      indiquez le poste recherché
-                      et laissez ATS CV Scorer
-                      classer les offres les plus
+                      indiquez le poste
+                      recherché et laissez
+                      ATS CV Scorer classer
+                      les offres les plus
                       pertinentes.
                     </p>
                   </div>
@@ -442,82 +738,44 @@ function App() {
             <h2
                 className="
 							text-2xl font-bold
-							tracking-tight text-slate-900
+							tracking-tight
+							text-slate-900
 						"
             >
               Offres analysées
             </h2>
 
-            <p className="mt-1 text-sm text-slate-500">
-              Retrouvez ici vos analyses précédentes.
+            <p
+                className="
+							mt-1 text-sm
+							text-slate-500
+						"
+            >
+              Retrouvez et rouvrez
+              vos analyses précédentes
+              sans relancer le moteur.
             </p>
           </div>
 
-          <div
-              className="
-						rounded-2xl border
-						border-slate-200 bg-white
-						p-8 shadow-sm
-					"
-          >
-            <div
-                className="
-							mx-auto flex max-w-lg
-							flex-col items-center
-							py-16 text-center
-						"
-            >
-              <div
-                  className="
-								flex h-14 w-14
-								items-center justify-center
-								rounded-2xl bg-indigo-50
-								text-2xl text-indigo-600
-							"
-              >
-                ▤
-              </div>
-
-              <h3
-                  className="
-								mt-5 text-lg font-bold
-								text-slate-900
-							"
-              >
-                Historique bientôt disponible
-              </h3>
-
-              <p
-                  className="
-								mt-2 text-sm
-								leading-6 text-slate-500
-							"
-              >
-                Nous ajouterons ici la sauvegarde
-                des recherches, les scores obtenus
-                et la possibilité de rouvrir une
-                analyse précédente.
-              </p>
-
-              <button
-                  type="button"
-                  onClick={() => {
-                    changeView(
-                        'dashboard',
-                    )
-                  }}
-                  className="
-								mt-6 rounded-xl
-								bg-blue-600 px-5
-								py-2.5 text-sm
-								font-semibold text-white
-								transition hover:bg-blue-700
-							"
-              >
-                Nouvelle analyse
-              </button>
-            </div>
-          </div>
+          <AnalysisHistory
+              items={
+                history
+              }
+              onOpen={
+                handleOpenHistory
+              }
+              onDelete={
+                handleDeleteHistory
+              }
+              onClear={
+                handleClearHistory
+              }
+              onNewAnalysis={() => {
+                changeView(
+                    'dashboard',
+                )
+              }}
+          />
         </div>
     )
   }
@@ -530,15 +788,22 @@ function App() {
             <h2
                 className="
 							text-2xl font-bold
-							tracking-tight text-slate-900
+							tracking-tight
+							text-slate-900
 						"
             >
               CV & Profil
             </h2>
 
-            <p className="mt-1 text-sm text-slate-500">
-              Consultez et gérez les informations
-              extraites de votre CV.
+            <p
+                className="
+							mt-1 text-sm
+							text-slate-500
+						"
+            >
+              Consultez et gérez
+              les informations extraites
+              de votre CV.
             </p>
           </div>
 
@@ -581,29 +846,40 @@ function App() {
   return (
       <div
           className="
-				min-h-screen bg-slate-50
+				min-h-screen
+				bg-slate-50
 				text-slate-900
 			"
       >
         {/* Header mobile */}
         <header
             className="
-					sticky top-0 z-40 flex
-					items-center justify-between
-					border-b border-slate-200
-					bg-white px-4 py-3
-					lg:hidden
+					sticky top-0 z-40
+					flex items-center
+					justify-between
+					border-b
+					border-slate-200
+					bg-white px-4
+					py-3 lg:hidden
 				"
         >
-          <div className="flex items-center gap-3">
+          <div
+              className="
+						flex items-center
+						gap-3
+					"
+          >
             <div
                 className="
 							flex h-10 w-10
-							items-center justify-center
+							items-center
+							justify-center
 							rounded-xl
 							bg-gradient-to-br
-							from-blue-500 to-indigo-600
-							font-bold text-white
+							from-blue-500
+							to-indigo-600
+							font-bold
+							text-white
 						"
             >
               ◇
@@ -623,8 +899,10 @@ function App() {
               }}
               className="
 						flex h-10 w-10
-						items-center justify-center
-						rounded-xl border
+						items-center
+						justify-center
+						rounded-xl
+						border
 						border-slate-200
 						bg-white text-xl
 					"
@@ -640,7 +918,8 @@ function App() {
 						fixed inset-y-0 left-0
 						z-50 flex w-64
 						flex-col border-r
-						border-slate-200 bg-white
+						border-slate-200
+						bg-white
 						transition-transform
 						duration-200
 						lg:translate-x-0
@@ -655,14 +934,16 @@ function App() {
                 className="
 							flex h-[76px]
 							items-center gap-3
-							border-b border-slate-100
+							border-b
+							border-slate-100
 							px-5
 						"
             >
               <div
                   className="
 								flex h-11 w-11
-								items-center justify-center
+								items-center
+								justify-center
 								rounded-xl
 								bg-gradient-to-br
 								from-blue-500
@@ -675,17 +956,32 @@ function App() {
               </div>
 
               <div>
-                <h1 className="font-bold tracking-tight">
+                <h1
+                    className="
+									font-bold
+									tracking-tight
+								"
+                >
                   ATS CV Scorer
                 </h1>
 
-                <p className="text-xs text-slate-400">
+                <p
+                    className="
+									text-xs
+									text-slate-400
+								"
+                >
                   Analyse intelligente
                 </p>
               </div>
             </div>
 
-            <nav className="flex-1 space-y-1 p-4">
+            <nav
+                className="
+							flex-1
+							space-y-1 p-4
+						"
+            >
               {navigationItems.map(
                   (item) => (
                       <button
@@ -700,10 +996,12 @@ function App() {
                           }}
                           className={`
 										flex w-full
-										items-center gap-3
-										rounded-xl px-4
-										py-3 text-left
-										text-sm font-medium
+										items-center
+										gap-3 rounded-xl
+										px-4 py-3
+										text-left
+										text-sm
+										font-medium
 										transition
 										${
                               activeView
@@ -715,7 +1013,8 @@ function App() {
                       >
 									<span
                                         className="
-											w-5 text-center
+											w-5
+											text-center
 											text-lg
 										"
                                     >
@@ -732,14 +1031,16 @@ function App() {
 
             <div
                 className="
-							border-t border-slate-100
+							border-t
+							border-slate-100
 							p-4
 						"
             >
               <div
                   className="
-								flex items-center gap-3
-								rounded-xl bg-slate-50
+								flex items-center
+								gap-3 rounded-xl
+								bg-slate-50
 								p-3
 							"
               >
@@ -747,9 +1048,12 @@ function App() {
                     className="
 									flex h-10 w-10
 									shrink-0
-									items-center justify-center
-									rounded-full bg-blue-600
-									text-sm font-bold
+									items-center
+									justify-center
+									rounded-full
+									bg-blue-600
+									text-sm
+									font-bold
 									text-white
 								"
                 >
@@ -759,7 +1063,8 @@ function App() {
                 <div className="min-w-0">
                   <p
                       className="
-										truncate text-sm
+										truncate
+										text-sm
 										font-semibold
 										text-slate-800
 									"
@@ -767,7 +1072,12 @@ function App() {
                     {candidateName}
                   </p>
 
-                  <p className="text-xs text-slate-400">
+                  <p
+                      className="
+										text-xs
+										text-slate-400
+									"
+                  >
                     Profil candidat
                   </p>
                 </div>
@@ -786,7 +1096,8 @@ function App() {
                     )
                   }}
                   className="
-							fixed inset-0 z-40
+							fixed inset-0
+							z-40
 							bg-slate-900/30
 							backdrop-blur-[1px]
 							lg:hidden
@@ -794,7 +1105,7 @@ function App() {
               />
           )}
 
-          {/* Contenu */}
+          {/* Contenu principal */}
           <div
               className="
 						min-w-0 flex-1
@@ -804,13 +1115,20 @@ function App() {
             <header
                 className="
 							hidden h-[76px]
-							items-center justify-end
-							border-b border-slate-200
+							items-center
+							justify-end
+							border-b
+							border-slate-200
 							bg-white px-8
 							lg:flex
 						"
             >
-              <div className="flex items-center gap-3">
+              <div
+                  className="
+								flex items-center
+								gap-3
+							"
+              >
                 <div
                     className="
 									flex h-10 w-10
@@ -818,7 +1136,8 @@ function App() {
 									justify-center
 									rounded-full
 									bg-blue-600
-									text-sm font-bold
+									text-sm
+									font-bold
 									text-white
 								"
                 >
@@ -826,11 +1145,21 @@ function App() {
                 </div>
 
                 <div>
-                  <p className="text-sm font-semibold">
+                  <p
+                      className="
+										text-sm
+										font-semibold
+									"
+                  >
                     {candidateName}
                   </p>
 
-                  <p className="text-xs text-slate-400">
+                  <p
+                      className="
+										text-xs
+										text-slate-400
+									"
+                  >
                     Profil candidat
                   </p>
                 </div>
@@ -839,14 +1168,55 @@ function App() {
 
             <main
                 className="
-							mx-auto max-w-[1600px]
-							p-4 sm:p-6 lg:p-8
+							mx-auto
+							max-w-[1600px]
+							p-4
+							sm:p-6
+							lg:p-8
 						"
             >
               {renderActiveView()}
             </main>
           </div>
         </div>
+
+        <ConfirmDialog
+            open={
+                confirmation !== null
+            }
+            title={
+              confirmation?.type
+              === 'clear-history'
+                  ? "Effacer tout l'historique ?"
+                  : 'Supprimer cette analyse ?'
+            }
+            description={
+              confirmation?.type
+              === 'clear-history'
+                  ? (
+                      `Les ${history.length} analyses enregistrées `
+                      + 'seront définitivement supprimées. '
+                      + 'Cette action est irréversible.'
+                  )
+                  : (
+                      'Cette analyse sera définitivement '
+                      + 'supprimée de votre historique.'
+                  )
+            }
+            confirmLabel={
+              confirmation?.type
+              === 'clear-history'
+                  ? 'Tout supprimer'
+                  : 'Supprimer'
+            }
+            cancelLabel="Annuler"
+            onConfirm={
+              handleConfirmAction
+            }
+            onCancel={
+              handleCancelConfirmation
+            }
+        />
       </div>
   )
 }

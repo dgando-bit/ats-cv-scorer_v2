@@ -70,7 +70,7 @@ function EmptyState({
 			className="
 				rounded-xl border border-dashed
 				border-slate-300 bg-slate-50
-				p-8 text-center
+				p-6 text-center sm:p-8
 			"
 		>
 			<p className="text-sm text-slate-500">
@@ -86,7 +86,10 @@ function Tag({
 				 variant,
 			 }: {
 	value: string
-	variant: 'success' | 'danger' | 'neutral'
+	variant:
+		| 'success'
+		| 'danger'
+		| 'neutral'
 }) {
 	const styles = {
 		success:
@@ -100,8 +103,9 @@ function Tag({
 	return (
 		<span
 			className={`
-				inline-flex items-center rounded-lg
-				border px-3 py-1.5 text-sm font-medium
+				inline-flex max-w-full items-center
+				rounded-lg border px-2.5 py-1.5
+				text-xs font-medium sm:px-3 sm:text-sm
 				${styles[variant]}
 			`}
 		>
@@ -117,7 +121,9 @@ function Tag({
 				</span>
 			)}
 
-			{value}
+			<span className="truncate">
+				{value}
+			</span>
 		</span>
 	)
 }
@@ -129,13 +135,16 @@ export default function JobDetails({
 	const [
 		activeTab,
 		setActiveTab,
-	] = useState<TabKey>('summary')
+	] = useState<TabKey>(
+		'summary',
+	)
 
 	const {
 		job,
 		match,
 		explanation,
 	} = rankedJob
+
 
 	function renderSummary() {
 		return (
@@ -150,35 +159,56 @@ export default function JobDetails({
 						Scores détaillés
 					</h3>
 
-					<div className="space-y-6">
+					<div className="space-y-5 sm:space-y-6">
 						<ScoreBar
 							label="Compétences"
-							score={match.details.skills}
+							score={
+								match.details.skills
+							}
 						/>
 
 						<ScoreBar
 							label="Outils & Technologies"
-							score={match.details.tools}
+							score={
+								match.details.tools
+							}
 						/>
 
 						<ScoreBar
 							label="Expérience"
-							score={match.details.experience}
+							score={
+								match.details.experience
+							}
 						/>
 
 						<ScoreBar
 							label="Formation"
-							score={match.details.education}
+							score={
+								match.details.education
+							}
 						/>
 
 						<ScoreBar
 							label="Langues"
-							score={match.details.languages}
+							score={
+								match.details.languages
+							}
 						/>
 					</div>
 
-					<div className="mt-8 border-t border-slate-100 pt-6">
-						<h3 className="mb-3 text-sm font-bold text-slate-800">
+					<div
+						className="
+							mt-7 border-t
+							border-slate-100 pt-5
+							sm:mt-8 sm:pt-6
+						"
+					>
+						<h3
+							className="
+								mb-3 text-sm
+								font-bold text-slate-800
+							"
+						>
 							Exigences principales
 						</h3>
 
@@ -213,8 +243,19 @@ export default function JobDetails({
 
 				<div className="space-y-4">
 					{explanation.summary && (
-						<div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-							<p className="text-sm leading-6 text-slate-700">
+						<div
+							className="
+								rounded-xl border
+								border-slate-200
+								bg-slate-50 p-4
+							"
+						>
+							<p
+								className="
+									text-sm leading-6
+									text-slate-700
+								"
+							>
 								{explanation.summary}
 							</p>
 						</div>
@@ -223,11 +264,18 @@ export default function JobDetails({
 					{explanation.strengths.length > 0 && (
 						<div
 							className="
-								rounded-xl border border-emerald-200
-								bg-emerald-50/70 p-5
+								rounded-xl border
+								border-emerald-200
+								bg-emerald-50/70
+								p-4 sm:p-5
 							"
 						>
-							<h3 className="mb-3 font-bold text-emerald-800">
+							<h3
+								className="
+									mb-3 font-bold
+									text-emerald-800
+								"
+							>
 								✓ Points forts
 							</h3>
 
@@ -237,12 +285,16 @@ export default function JobDetails({
 										<li
 											key={strength}
 											className="
-												flex gap-2 text-sm
-												leading-5 text-slate-700
+												flex gap-2
+												text-sm leading-5
+												text-slate-700
 											"
 										>
 											<span>•</span>
-											<span>{strength}</span>
+
+											<span>
+												{strength}
+											</span>
 										</li>
 									),
 								)}
@@ -253,11 +305,18 @@ export default function JobDetails({
 					{explanation.weaknesses.length > 0 && (
 						<div
 							className="
-								rounded-xl border border-amber-200
-								bg-amber-50/70 p-5
+								rounded-xl border
+								border-amber-200
+								bg-amber-50/70
+								p-4 sm:p-5
 							"
 						>
-							<h3 className="mb-3 font-bold text-amber-800">
+							<h3
+								className="
+									mb-3 font-bold
+									text-amber-800
+								"
+							>
 								△ Points à renforcer
 							</h3>
 
@@ -267,12 +326,16 @@ export default function JobDetails({
 										<li
 											key={weakness}
 											className="
-												flex gap-2 text-sm
-												leading-5 text-slate-700
+												flex gap-2
+												text-sm leading-5
+												text-slate-700
 											"
 										>
 											<span>•</span>
-											<span>{weakness}</span>
+
+											<span>
+												{weakness}
+											</span>
 										</li>
 									),
 								)}
@@ -283,11 +346,18 @@ export default function JobDetails({
 					{explanation.recommendations.length > 0 && (
 						<div
 							className="
-								rounded-xl border border-blue-200
-								bg-blue-50/70 p-5
+								rounded-xl border
+								border-blue-200
+								bg-blue-50/70
+								p-4 sm:p-5
 							"
 						>
-							<h3 className="mb-3 font-bold text-blue-800">
+							<h3
+								className="
+									mb-3 font-bold
+									text-blue-800
+								"
+							>
 								☆ Recommandations
 							</h3>
 
@@ -297,11 +367,13 @@ export default function JobDetails({
 										<li
 											key={recommendation}
 											className="
-												flex gap-2 text-sm
-												leading-5 text-slate-700
+												flex gap-2
+												text-sm leading-5
+												text-slate-700
 											"
 										>
 											<span>•</span>
+
 											<span>
 												{recommendation}
 											</span>
@@ -331,26 +403,41 @@ export default function JobDetails({
 		}
 
 		return (
-			<div className="space-y-8">
+			<div className="space-y-7 sm:space-y-8">
 				<div>
-					<div className="mb-5 flex items-center justify-between gap-4">
+					<div
+						className="
+							mb-5 flex items-center
+							justify-between gap-4
+						"
+					>
 						<h3 className="text-base font-bold text-slate-900">
 							Compétences
 						</h3>
 
 						<span className="text-sm font-semibold text-slate-600">
-							{Math.round(match.details.skills)}%
+							{Math.round(
+								match.details.skills,
+							)}
+							%
 						</span>
 					</div>
 
 					<ScoreBar
 						label="Couverture des compétences"
-						score={match.details.skills}
+						score={
+							match.details.skills
+						}
 					/>
 				</div>
 
 				<div>
-					<h4 className="mb-3 text-sm font-bold text-emerald-700">
+					<h4
+						className="
+							mb-3 text-sm font-bold
+							text-emerald-700
+						"
+					>
 						Compétences présentes dans votre CV
 					</h4>
 
@@ -374,7 +461,12 @@ export default function JobDetails({
 				</div>
 
 				<div>
-					<h4 className="mb-3 text-sm font-bold text-red-700">
+					<h4
+						className="
+							mb-3 text-sm font-bold
+							text-red-700
+						"
+					>
 						Compétences à renforcer
 					</h4>
 
@@ -393,8 +485,10 @@ export default function JobDetails({
 					) : (
 						<div
 							className="
-								rounded-xl border border-emerald-200
-								bg-emerald-50 p-4
+								rounded-xl border
+								border-emerald-200
+								bg-emerald-50
+								p-4
 							"
 						>
 							<p className="text-sm text-emerald-700">
@@ -422,11 +516,13 @@ export default function JobDetails({
 		}
 
 		return (
-			<div className="space-y-8">
+			<div className="space-y-7 sm:space-y-8">
 				<div>
 					<ScoreBar
 						label="Couverture des outils & technologies"
-						score={match.details.tools}
+						score={
+							match.details.tools
+						}
 					/>
 				</div>
 
@@ -474,7 +570,8 @@ export default function JobDetails({
 					) : (
 						<div
 							className="
-								rounded-xl border border-emerald-200
+								rounded-xl border
+								border-emerald-200
 								bg-emerald-50 p-4
 							"
 						>
@@ -492,29 +589,45 @@ export default function JobDetails({
 	function renderExperience() {
 		return (
 			<div className="space-y-6">
-				<div>
-					<ScoreBar
-						label="Compatibilité de l'expérience"
-						score={match.details.experience}
-					/>
-				</div>
+				<ScoreBar
+					label="Compatibilité de l'expérience"
+					score={
+						match.details.experience
+					}
+				/>
 
 				<div
 					className="
-						grid gap-4 md:grid-cols-2
+						grid gap-4
+						sm:grid-cols-2
 					"
 				>
 					<div
 						className="
-							rounded-xl border border-slate-200
-							bg-slate-50 p-5
+							rounded-xl border
+							border-slate-200
+							bg-slate-50 p-4
+							sm:p-5
 						"
 					>
-						<p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+						<p
+							className="
+								text-xs font-semibold
+								uppercase tracking-wide
+								text-slate-400
+							"
+						>
 							Expérience demandée
 						</p>
 
-						<p className="mt-2 text-lg font-bold text-slate-900">
+						<p
+							className="
+								mt-2 text-base
+								font-bold
+								text-slate-900
+								sm:text-lg
+							"
+						>
 							{job.experience_required
 								?? 'Non précisée'}
 						</p>
@@ -522,15 +635,30 @@ export default function JobDetails({
 
 					<div
 						className="
-							rounded-xl border border-slate-200
-							bg-slate-50 p-5
+							rounded-xl border
+							border-slate-200
+							bg-slate-50 p-4
+							sm:p-5
 						"
 					>
-						<p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+						<p
+							className="
+								text-xs font-semibold
+								uppercase tracking-wide
+								text-slate-400
+							"
+						>
 							Score expérience
 						</p>
 
-						<p className="mt-2 text-lg font-bold text-slate-900">
+						<p
+							className="
+								mt-2 text-base
+								font-bold
+								text-slate-900
+								sm:text-lg
+							"
+						>
 							{Math.round(
 								match.details.experience,
 							)}
@@ -541,8 +669,10 @@ export default function JobDetails({
 
 				<div
 					className="
-						rounded-xl border border-blue-100
-						bg-blue-50 p-5
+						rounded-xl border
+						border-blue-100
+						bg-blue-50 p-4
+						sm:p-5
 					"
 				>
 					<p className="text-sm leading-6 text-slate-700">
@@ -561,25 +691,43 @@ export default function JobDetails({
 			<div className="space-y-6">
 				<ScoreBar
 					label="Compatibilité de la formation"
-					score={match.details.education}
+					score={
+						match.details.education
+					}
 				/>
 
 				<div
 					className="
-						grid gap-4 md:grid-cols-2
+						grid gap-4
+						sm:grid-cols-2
 					"
 				>
 					<div
 						className="
-							rounded-xl border border-slate-200
-							bg-slate-50 p-5
+							rounded-xl border
+							border-slate-200
+							bg-slate-50 p-4
+							sm:p-5
 						"
 					>
-						<p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+						<p
+							className="
+								text-xs font-semibold
+								uppercase
+								text-slate-400
+							"
+						>
 							Formation demandée
 						</p>
 
-						<p className="mt-2 text-lg font-bold text-slate-900">
+						<p
+							className="
+								mt-2 text-base
+								font-bold
+								text-slate-900
+								sm:text-lg
+							"
+						>
 							{job.education_required
 								?? 'Non précisée'}
 						</p>
@@ -587,15 +735,30 @@ export default function JobDetails({
 
 					<div
 						className="
-							rounded-xl border border-slate-200
-							bg-slate-50 p-5
+							rounded-xl border
+							border-slate-200
+							bg-slate-50 p-4
+							sm:p-5
 						"
 					>
-						<p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+						<p
+							className="
+								text-xs font-semibold
+								uppercase
+								text-slate-400
+							"
+						>
 							Score formation
 						</p>
 
-						<p className="mt-2 text-lg font-bold text-slate-900">
+						<p
+							className="
+								mt-2 text-base
+								font-bold
+								text-slate-900
+								sm:text-lg
+							"
+						>
 							{Math.round(
 								match.details.education,
 							)}
@@ -623,10 +786,12 @@ export default function JobDetails({
 		}
 
 		return (
-			<div className="space-y-8">
+			<div className="space-y-7 sm:space-y-8">
 				<ScoreBar
 					label="Compatibilité linguistique"
-					score={match.details.languages}
+					score={
+						match.details.languages
+					}
 				/>
 
 				{job.languages.length > 0 && (
@@ -702,26 +867,51 @@ export default function JobDetails({
 			<div className="space-y-6">
 				<div
 					className="
-						grid gap-4 sm:grid-cols-2
+						grid gap-4
+						sm:grid-cols-2
 					"
 				>
 					<div className="rounded-xl bg-slate-50 p-4">
-						<p className="text-xs font-semibold uppercase text-slate-400">
+						<p
+							className="
+								text-xs font-semibold
+								uppercase
+								text-slate-400
+							"
+						>
 							Localisation
 						</p>
 
-						<p className="mt-1 text-sm font-semibold text-slate-800">
+						<p
+							className="
+								mt-1 text-sm
+								font-semibold
+								text-slate-800
+							"
+						>
 							{job.location
 								?? 'Non précisée'}
 						</p>
 					</div>
 
 					<div className="rounded-xl bg-slate-50 p-4">
-						<p className="text-xs font-semibold uppercase text-slate-400">
+						<p
+							className="
+								text-xs font-semibold
+								uppercase
+								text-slate-400
+							"
+						>
 							Type de contrat
 						</p>
 
-						<p className="mt-1 text-sm font-semibold text-slate-800">
+						<p
+							className="
+								mt-1 text-sm
+								font-semibold
+								text-slate-800
+							"
+						>
 							{job.contract_type
 								?? 'Non précisé'}
 						</p>
@@ -735,10 +925,17 @@ export default function JobDetails({
 
 					<div
 						className="
-							max-h-[600px] overflow-y-auto
-							whitespace-pre-line rounded-xl
-							border border-slate-200 bg-slate-50
-							p-5 text-sm leading-7 text-slate-700
+							max-h-[60vh]
+							overflow-y-auto
+							whitespace-pre-line
+							rounded-xl border
+							border-slate-200
+							bg-slate-50
+							p-4 text-sm
+							leading-7
+							text-slate-700
+							sm:max-h-[600px]
+							sm:p-5
 						"
 					>
 						{job.description
@@ -780,90 +977,211 @@ export default function JobDetails({
 	return (
 		<section
 			className="
-				overflow-hidden rounded-2xl border
-				border-slate-200 bg-white shadow-sm
+				overflow-hidden
+				rounded-2xl border
+				border-slate-200
+				bg-white shadow-sm
 			"
 		>
 			<header
 				className="
-					flex flex-col gap-5
-					border-b border-slate-200 p-6
-					md:flex-row md:items-start
-					md:justify-between
+					border-b
+					border-slate-200
+					p-4 sm:p-5 md:p-6
 				"
 			>
-				<div className="min-w-0">
-					<h2 className="text-xl font-bold text-slate-900 lg:text-2xl">
-						{job.title}
-					</h2>
+				<div
+					className="
+						flex flex-col gap-5
+						md:flex-row
+						md:items-start
+						md:justify-between
+					"
+				>
+					<div className="min-w-0 flex-1">
+						<h2
+							className="
+								text-lg font-bold
+								leading-6
+								text-slate-900
+								sm:text-xl
+								lg:text-2xl
+							"
+						>
+							{job.title}
+						</h2>
 
-					{job.company && (
-						<p className="mt-2 font-semibold text-blue-600">
-							{job.company}
-						</p>
-					)}
-
-					<div className="mt-4 flex flex-wrap gap-4 text-sm text-slate-500">
-						{job.location && (
-							<span>
-								📍 {job.location}
-							</span>
+						{job.company && (
+							<p
+								className="
+									mt-2 text-sm
+									font-semibold
+									text-blue-600
+									sm:text-base
+								"
+							>
+								{job.company}
+							</p>
 						)}
 
-						{job.contract_type && (
-							<span>
-								▣ {job.contract_type}
+						<div
+							className="
+								mt-3 flex
+								flex-wrap gap-x-4
+								gap-y-2
+								text-xs
+								text-slate-500
+								sm:mt-4
+								sm:text-sm
+							"
+						>
+							{job.location && (
+								<span>
+									📍 {job.location}
+								</span>
+							)}
+
+							{job.contract_type && (
+								<span>
+									▣ {job.contract_type}
+								</span>
+							)}
+						</div>
+					</div>
+
+					<div
+						className="
+							flex items-center
+							justify-between
+							gap-4
+							md:flex-col
+							md:justify-start
+						"
+					>
+						<div className="flex flex-col items-center">
+							<MatchScore
+								score={
+									match.score
+								}
+								size="lg"
+							/>
+
+							<span
+								className="
+									mt-2 text-xs
+									font-medium
+									text-slate-500
+								"
+							>
+								Compatibilité CV
 							</span>
+						</div>
+
+						{job.source_url && (
+							<a
+								href={job.source_url}
+								target="_blank"
+								rel="noopener noreferrer"
+								className="
+									inline-flex
+									min-h-10
+									items-center
+									justify-center
+									gap-2 rounded-xl
+									border
+									border-blue-200
+									bg-blue-50
+									px-3 py-2
+									text-xs
+									font-semibold
+									text-blue-700
+									transition
+									hover:border-blue-300
+									hover:bg-blue-100
+									sm:px-4
+									sm:text-sm
+									md:w-full
+								"
+							>
+								<span>
+									Voir l'offre
+								</span>
+
+								<span
+									className="
+										hidden sm:inline
+									"
+								>
+									originale
+								</span>
+
+								<span aria-hidden="true">
+									↗
+								</span>
+							</a>
 						)}
 					</div>
 				</div>
-
-				<div className="flex flex-col items-center">
-					<MatchScore
-						score={match.score}
-						size="lg"
-					/>
-
-					<span className="mt-2 text-xs font-medium text-slate-500">
-						Compatibilité CV
-					</span>
-				</div>
 			</header>
 
-			<nav
+			<div
 				className="
-					flex gap-1 overflow-x-auto
-					border-b border-slate-200 px-5
+					border-b
+					border-slate-200
+					bg-white
 				"
 			>
-				{tabs.map(
-					(tab) => (
-						<button
-							key={tab.key}
-							type="button"
-							onClick={() => {
-								setActiveTab(
-									tab.key,
-								)
-							}}
-							className={`
-								whitespace-nowrap border-b-2
-								px-3 py-4 text-sm font-medium
-								transition
-								${
-								activeTab === tab.key
-									? 'border-blue-600 text-blue-600'
-									: 'border-transparent text-slate-500 hover:text-slate-800'
-							}
-							`}
-						>
-							{tab.label}
-						</button>
-					),
-				)}
-			</nav>
+				<nav
+					className="
+						flex gap-1
+						overflow-x-auto
+						px-3
+						scroll-smooth
+						sm:px-5
+					"
+				>
+					{tabs.map(
+						(tab) => (
+							<button
+								key={tab.key}
+								type="button"
+								onClick={() => {
+									setActiveTab(
+										tab.key,
+									)
+								}}
+								className={`
+									shrink-0
+									whitespace-nowrap
+									border-b-2
+									px-3 py-3
+									text-xs
+									font-medium
+									transition
+									sm:py-4
+									sm:text-sm
+									${
+									activeTab
+									=== tab.key
+										? 'border-blue-600 text-blue-600'
+										: 'border-transparent text-slate-500 hover:text-slate-800'
+								}
+								`}
+							>
+								{tab.label}
+							</button>
+						),
+					)}
+				</nav>
+			</div>
 
-			<div className="p-6">
+			<div
+				className="
+					p-4
+					sm:p-5
+					md:p-6
+				"
+			>
 				{renderActiveTab()}
 			</div>
 		</section>
