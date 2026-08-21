@@ -6,18 +6,28 @@ from fastapi import (
     Depends,
     File,
     Form,
+    HTTPException,
     UploadFile,
 )
 
 from app.api.dependencies import (
     get_job_search_pipeline,
 )
-from app.models.ranking import JobRankingResult
-from app.services.cv.cv_extractor import CVExtractor
+from app.models.ranking import (
+    JobRankingResult,
+)
+from app.providers.exceptions import (
+    UnknownLocationError,
+)
+from app.services.cv.cv_extractor import (
+    CVExtractor,
+)
 from app.services.matching.job_search_pipeline import (
     JobSearchPipeline,
 )
-from app.utils.file_validation import read_valid_pdf
+from app.utils.file_validation import (
+    read_valid_pdf,
+)
 
 
 router = APIRouter(
@@ -45,38 +55,71 @@ async def rank_jobs(
     temp_path: str | None = None
 
     try:
-        content = await read_valid_pdf(file)
+        content = await read_valid_pdf(
+            file
+        )
 
         with tempfile.NamedTemporaryFile(
             delete=False,
             suffix=".pdf",
         ) as temp_file:
-            temp_file.write(content)
-            temp_path = temp_file.name
+            temp_file.write(
+                content
+            )
+
+            temp_path = (
+                temp_file.name
+            )
 
         cv = cv_extractor.extract(
             temp_path
         )
 
-        return pipeline.search_and_rank(
-            cv=cv,
-            keywords=keywords,
-            location=location,
-            insee_code=insee_code,
-            provider_limit=max(
-                50,
-                limit,
-            ),
-            retrieval_top_k=max(
-                20,
-                limit,
-            ),
-            final_limit=limit,
-        )
+        try:
+            return pipeline.search_and_rank(
+                cv=cv,
+                keywords=keywords,
+                location=location,
+                insee_code=insee_code,
+                provider_limit=max(
+                    50,
+                    limit,
+                ),
+                retrieval_top_k=max(
+                    20,
+                    limit,
+                ),
+                final_limit=limit,
+            )
+
+        except UnknownLocationError as exc:
+            invalid_location = str(
+                exc
+            ).strip()
+
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "unknown_location",
+                    "message": (
+                        "Localisation inconnue. "
+                        "Vérifiez l'orthographe "
+                        "ou sélectionnez une ville "
+                        "dans la liste."
+                    ),
+                    "location": (
+                        invalid_location
+                    ),
+                },
+            ) from exc
 
     finally:
         if (
             temp_path
-            and os.path.exists(temp_path)
+            and os.path.exists(
+                temp_path
+            )
         ):
-            os.remove(temp_path)
+            os.remove(
+                temp_path
+            )

@@ -1,0 +1,2 @@
+class UnknownLocationError(ValueError):
+    pass

@@ -9,7 +9,9 @@ from app.providers.base import JobProvider
 from app.services.locations.location_resolver import (
     LocationResolver,
 )
-
+from app.providers.exceptions import (
+    UnknownLocationError,
+)
 
 class FranceTravailProvider(
     JobProvider,
@@ -270,14 +272,9 @@ class FranceTravailProvider(
                 # -------------------------------------------------
 
                 if not commune_code:
-                    print(
-                        "[france-travail] "
-                        "Unknown location: "
-                        f"{normalized_location!r}",
-                        flush=True,
+                    raise UnknownLocationError(
+                        normalized_location
                     )
-
-                    return []
 
                 params["commune"] = (
                     commune_code
