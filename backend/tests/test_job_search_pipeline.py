@@ -41,115 +41,121 @@ class FakeProvider:
 
 
 class FakeSemanticService:
-    def similarity(
-        self,
-        query,
-        document,
-    ):
-        # On simule volontairement E5 qui se trompe :
-        # Frontend obtient un score supérieur au backend.
-        if "Software Engineer" in document:
-            return 0.80
-
-        return 0.90
-
     def similarities(
         self,
         query,
         documents,
     ):
-        return [
-            self.similarity(
-                query=query,
-                document=document,
-            )
-            for document in documents
-        ]
+        scores = []
+
+        for document in documents:
+            if "Software Engineer" in document:
+                scores.append(
+                    0.80
+                )
+            else:
+                scores.append(
+                    0.90
+                )
+
+        return scores
 
 
 class FakeRelevanceEvaluator:
-    def evaluate(
-        self,
-        query,
-        job,
-    ):
-        # Le LLM corrige ensuite le ranking.
-        if job.id == "2":
-            return JobRelevanceEvaluation(
-                relevance=0.95,
-                reason="Backend role.",
-            )
-
-        return JobRelevanceEvaluation(
-            relevance=0.10,
-            reason="Frontend role.",
-        )
-
     def evaluate_many(
         self,
         query,
         jobs,
     ):
-        return [
-            self.evaluate(
-                query=query,
-                job=job,
-            )
-            for job in jobs
-        ]
+        evaluations = []
+
+        for job in jobs:
+            if job.id == "2":
+                evaluations.append(
+                    JobRelevanceEvaluation(
+                        relevance=0.95,
+                        reason="Backend role.",
+                    )
+                )
+            else:
+                evaluations.append(
+                    JobRelevanceEvaluation(
+                        relevance=0.10,
+                        reason="Frontend role.",
+                    )
+                )
+
+        return evaluations
 
 
-class FakeRequirementsExtractor:
+class FakeRequirementsBatchExtractor:
     def extract(
         self,
-        job,
+        jobs,
     ):
-        if job.id == "2":
-            return JobRequirements(
-                hard_skills=[
-                    "Python",
-                ],
-                tools=[],
-                soft_skills=[],
-                languages=[],
-                experience=ExperienceRequirement(
-                    min_years=2,
-                    max_years=4,
-                    context="Backend development",
-                ),
-                education_level="Bac+5",
-                certifications=[],
-                responsibilities=[
-                    "Develop backend services",
-                ],
+        results = []
+
+        for job in jobs:
+            if job.id == "2":
+                results.append(
+                    JobRequirements(
+                        hard_skills=[
+                            "Python",
+                        ],
+                        tools=[],
+                        soft_skills=[],
+                        languages=[],
+                        experience=(
+                            ExperienceRequirement(
+                                min_years=2,
+                                max_years=4,
+                                context=(
+                                    "Backend development"
+                                ),
+                            )
+                        ),
+                        education_level="Bac+5",
+                        certifications=[],
+                        responsibilities=[
+                            "Develop backend services",
+                        ],
+                    )
+                )
+
+                continue
+
+            results.append(
+                JobRequirements(
+                    hard_skills=[
+                        "Frontend development",
+                    ],
+                    tools=[
+                        "React",
+                    ],
+                    soft_skills=[],
+                    languages=[],
+                    experience=(
+                        ExperienceRequirement(
+                            min_years=None,
+                            max_years=None,
+                            context=None,
+                        )
+                    ),
+                    education_level=None,
+                    certifications=[],
+                    responsibilities=[
+                        "Develop user interfaces",
+                    ],
+                )
             )
 
-        return JobRequirements(
-            hard_skills=[
-                "Frontend development",
-            ],
-            tools=[
-                "React",
-            ],
-            soft_skills=[],
-            languages=[],
-            experience=ExperienceRequirement(
-                min_years=None,
-                max_years=None,
-                context=None,
-            ),
-            education_level=None,
-            certifications=[],
-            responsibilities=[
-                "Develop user interfaces",
-            ],
-        )
+        return results
 
 
-class FailingRequirementsExtractor:
+class FailingRequirementsBatchExtractor:
     def extract(
         self,
-        job,
+        jobs,
     ):
         raise RuntimeError(
             "Groq unavailable"
@@ -273,8 +279,8 @@ def test_job_search_pipeline_uses_llm_relevance():
         job_offer_extractor=(
             FakeExtractor()
         ),
-        requirements_extractor=(
-            FakeRequirementsExtractor()
+        requirements_batch_extractor=(
+            FakeRequirementsBatchExtractor()
         ),
         matching_engine=(
             FakeMatchingEngine()
@@ -292,10 +298,14 @@ def test_job_search_pipeline_uses_llm_relevance():
         final_limit=2,
     )
 
-    assert len(result.jobs) == 2
+    assert len(
+        result.jobs
+    ) == 2
 
-    # E5 avait placé Frontend devant.
-    # Le LLM doit remettre le backend devant.
+    # Le retrieval sémantique place volontairement
+    # Frontend devant.
+    #
+    # Le reranking doit remettre le backend devant.
     assert (
         result.jobs[0].job.id
         == "2"
@@ -318,26 +328,25 @@ def test_job_search_pipeline_uses_llm_relevance():
 
     # Vérification du mapping
     # JobRequirements -> JobOffer.
-    # Vérification de l'extraction locale V1.
     assert (
-            result.jobs[0]
-            .job
-            .skills
-            == ["fallback-skill"]
+        result.jobs[0]
+        .job
+        .experience_required
+        == "2 à 4 ans"
     )
 
     assert (
-            result.jobs[0]
-            .job
-            .experience_required
-            is None
+        result.jobs[0]
+        .job
+        .education_required
+        == "Bac+5"
     )
 
     assert (
-            result.jobs[0]
-            .job
-            .education_required
-            is None
+        result.jobs[0]
+        .job
+        .skills
+        == ["Python"]
     )
 
 
@@ -353,8 +362,8 @@ def test_job_search_pipeline_falls_back_to_lexical_extractor():
         job_offer_extractor=(
             FakeExtractor()
         ),
-        requirements_extractor=(
-            FailingRequirementsExtractor()
+        requirements_batch_extractor=(
+            FailingRequirementsBatchExtractor()
         ),
         matching_engine=(
             FakeMatchingEngine()
@@ -372,17 +381,21 @@ def test_job_search_pipeline_falls_back_to_lexical_extractor():
         final_limit=1,
     )
 
-    assert len(result.jobs) == 1
+    assert len(
+        result.jobs
+    ) == 1
 
     assert (
         result.jobs[0].job.id
         == "2"
     )
 
-    # La présence de cette skill montre
-    # que le fallback lexical a été utilisé.
+    # Cette skill prouve que le fallback
+    # lexical a bien été utilisé.
     assert (
-        result.jobs[0].job.skills
+        result.jobs[0]
+        .job
+        .skills
         == ["fallback-skill"]
     )
 
@@ -399,8 +412,8 @@ def test_job_search_pipeline_respects_final_limit():
         job_offer_extractor=(
             FakeExtractor()
         ),
-        requirements_extractor=(
-            FakeRequirementsExtractor()
+        requirements_batch_extractor=(
+            FakeRequirementsBatchExtractor()
         ),
         matching_engine=(
             FakeMatchingEngine()
@@ -418,7 +431,9 @@ def test_job_search_pipeline_respects_final_limit():
         final_limit=1,
     )
 
-    assert len(result.jobs) == 1
+    assert len(
+        result.jobs
+    ) == 1
 
     assert (
         result.jobs[0].job.id

@@ -16,7 +16,9 @@ from app.services.semantic.semantic_similarity_service import (
 from app.services.cv.cv_extractor import (
     CVExtractor,
 )
-
+from app.services.llm.groq_job_requirements_batch_extractor import (
+    GroqJobRequirementsBatchExtractor,
+)
 
 @lru_cache
 def get_cv_extractor() -> CVExtractor:
@@ -51,25 +53,23 @@ def get_relevance_evaluator() -> GroqJobRelevanceEvaluator:
     return GroqJobRelevanceEvaluator()
 
 
-@lru_cache
 def get_job_search_pipeline() -> JobSearchPipeline:
-    """
-    Réutilise le pipeline complet entre les requêtes.
-
-    Cela évite de recréer inutilement :
-    - FranceTravailProvider
-    - SemanticSimilarityService
-    - GroqJobRelevanceEvaluator
-    - GroqJobRequirementsExtractor
-    - MatchingEngine
-    - MatchExplanationService
-    """
     return JobSearchPipeline(
-        provider=get_job_provider(),
+        provider=FranceTravailProvider(),
         relevance_evaluator=(
             get_relevance_evaluator()
         ),
         semantic_service=(
             get_semantic_service()
         ),
+        requirements_batch_extractor=(
+            get_requirements_batch_extractor()
+        ),
+    )
+
+@lru_cache
+def get_requirements_batch_extractor(
+) -> GroqJobRequirementsBatchExtractor:
+    return (
+        GroqJobRequirementsBatchExtractor()
     )

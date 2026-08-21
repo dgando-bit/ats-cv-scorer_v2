@@ -573,15 +573,36 @@ class MatchingEngine:
     # Score global pondéré
     # =============================================================
 
+    # =============================================================
+    # Score global pondéré
+    # =============================================================
+
     @classmethod
     def _calculate_weighted_score(
         cls,
         scores: dict[str, float],
         active: dict[str, bool],
     ) -> float:
+        """
+        Calcule le score global sans renormaliser artificiellement
+        les catégories absentes.
+
+        Chaque catégorie conserve son poids réel dans le score
+        final.
+
+        Exemple :
+            education = 100 %
+            seule catégorie active
+
+            score final =
+                100 * 0.10
+                = 10 %
+
+        Cela évite qu'une seule exigence détectée produise
+        artificiellement un score global de 100 %.
+        """
 
         weighted_sum = 0.0
-        active_weight = 0.0
 
         for (
             category,
@@ -602,14 +623,8 @@ class MatchingEngine:
                 * weight
             )
 
-            active_weight += weight
-
-        if active_weight == 0:
-            return 0.0
-
         return round(
-            weighted_sum
-            / active_weight,
+            weighted_sum,
             2,
         )
 

@@ -533,7 +533,7 @@ def test_matching_engine_education_with_explicit_cv_level():
 
     assert result.details.education == 100.0
 
-def test_dynamic_score_ignores_unused_categories():
+def test_score_uses_only_active_categories_without_weight_redistribution():
 
     scores = {
         "skills": 100.0,
@@ -556,9 +556,12 @@ def test_dynamic_score_ignores_unused_categories():
         active=active,
     )
 
-    assert score == 70.0
+    # 100 * 0.40
+    # + 60 * 0.20
+    # + 20 * 0.20
+    assert score == 56.0
 
-def test_dynamic_score_redistributes_weights():
+def test_dynamic_score_does_not_redistribute_weights():
 
     scores = {
         "skills": 100.0,
@@ -581,8 +584,9 @@ def test_dynamic_score_redistributes_weights():
         active=active,
     )
 
-    # (100 * 0.40 + 50 * 0.20) / 0.60
-    assert score == 83.33
+    # 100 * 0.40
+    # + 50 * 0.20
+    assert score == 50.0
 
 def test_dynamic_score_returns_zero_when_no_category_is_active():
 
@@ -818,3 +822,57 @@ def test_french_can_be_inferred_from_french_cv():
         result.missing_languages
         == []
     )
+
+def test_score_does_not_reach_100_with_only_education():
+    scores = {
+        "skills": 0.0,
+        "tools": 0.0,
+        "experience": 0.0,
+        "education": 100.0,
+        "languages": 0.0,
+    }
+
+    active = {
+        "skills": False,
+        "tools": False,
+        "experience": False,
+        "education": True,
+        "languages": False,
+    }
+
+    score = (
+        MatchingEngine
+        ._calculate_weighted_score(
+            scores=scores,
+            active=active,
+        )
+    )
+
+    assert score == 10.0
+
+def test_score_reaches_100_when_all_categories_match():
+    scores = {
+        "skills": 100.0,
+        "tools": 100.0,
+        "experience": 100.0,
+        "education": 100.0,
+        "languages": 100.0,
+    }
+
+    active = {
+        "skills": True,
+        "tools": True,
+        "experience": True,
+        "education": True,
+        "languages": True,
+    }
+
+    score = (
+        MatchingEngine
+        ._calculate_weighted_score(
+            scores=scores,
+            active=active,
+        )
+    )
+
+    assert score == 100.0
