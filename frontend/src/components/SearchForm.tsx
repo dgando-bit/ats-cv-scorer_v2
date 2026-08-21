@@ -23,12 +23,18 @@ interface SearchFormProps {
 	) => void
 
 	isLoading?: boolean
+
+	locationError?: string | null
+
+	onLocationChange?: () => void
 }
 
 
 export default function SearchForm({
 									   onSubmit,
 									   isLoading = false,
+									   locationError = null,
+									   onLocationChange,
 								   }: SearchFormProps) {
 	const [
 		file,
@@ -245,9 +251,43 @@ export default function SearchForm({
 							location
 						}
 						onChange={
-							setLocation
+							(newLocation) => {
+								setLocation(
+									newLocation,
+								)
+
+								/*
+								 * Dès que l'utilisateur
+								 * modifie la localisation,
+								 * on efface l'erreur précédente.
+								 */
+								onLocationChange?.()
+							}
 						}
 					/>
+
+					{locationError && (
+						<div
+							role="alert"
+							className="
+								mt-2 flex
+								items-start gap-2
+								text-xs leading-5
+								text-red-600
+							"
+						>
+							<span
+								className="shrink-0"
+								aria-hidden="true"
+							>
+								⚠
+							</span>
+
+							<span>
+								{locationError}
+							</span>
+						</div>
+					)}
 				</div>
 
 				{/* Nombre d'offres */}
