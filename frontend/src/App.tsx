@@ -1,46 +1,73 @@
-import { useState } from 'react'
+import {
+  useState,
+} from 'react'
 
-import { rankJobs } from './api/jobs'
+import {
+  rankJobs,
+} from './api/jobs'
+
 import SearchForm, {
   type SearchFormValues,
 } from './components/SearchForm'
-import type { JobRankingResult } from './types/ranking'
+
+import JobDetails from './components/dashboard/JobDetails'
+import JobList from './components/dashboard/JobList'
+
+import type {
+  JobRankingResult,
+} from './types/ranking'
+
 
 function App() {
-  const [result, setResult] =
-      useState<JobRankingResult | null>(null)
+  const [
+    result,
+    setResult,
+  ] = useState<JobRankingResult | null>(
+      null,
+  )
 
-  const [isLoading, setIsLoading] =
-      useState(false)
+  const [
+    selectedIndex,
+    setSelectedIndex,
+  ] = useState(0)
 
-  const [error, setError] =
-      useState<string | null>(null)
+  const [
+    isLoading,
+    setIsLoading,
+  ] = useState(false)
+
+  const [
+    error,
+    setError,
+  ] = useState<string | null>(
+      null,
+  )
 
   async function handleSearch(
       values: SearchFormValues,
   ) {
     setIsLoading(true)
     setError(null)
-    setResult(null)
 
     try {
       const data = await rankJobs({
         file: values.file,
         keywords: values.keywords,
-        location: values.location?.label,
-        inseeCode: values.location?.insee_code,
+        location:
+        values.location?.label,
+        inseeCode:
+        values.location?.insee_code,
         limit: values.limit,
       })
 
       setResult(data)
-
-      console.log('Ranking result:', data)
-    } catch (err) {
-      console.error(err)
+      setSelectedIndex(0)
+    } catch (error) {
+      console.error(error)
 
       setError(
-          err instanceof Error
-              ? err.message
+          error instanceof Error
+              ? error.message
               : "Une erreur est survenue pendant l'analyse.",
       )
     } finally {
@@ -48,20 +75,82 @@ function App() {
     }
   }
 
+  const selectedJob =
+      result?.jobs[selectedIndex]
+
+  const initial =
+      result?.candidate_name
+          ?.trim()
+          .charAt(0)
+          .toUpperCase()
+      ?? 'C'
+
   return (
-      <main className="min-h-screen bg-slate-50 px-6 py-8">
-        <div className="mx-auto max-w-7xl">
-          <header className="mb-8">
-            <h1 className="text-3xl font-semibold text-slate-900">
-              ATS CV Scorer
-            </h1>
+      <div className="min-h-screen bg-slate-50 text-slate-900">
+        <header className="border-b border-slate-200 bg-white">
+          <div
+              className="
+						mx-auto flex max-w-[1600px] items-center
+						justify-between gap-6 px-4 py-4
+						sm:px-6 lg:px-8
+					"
+          >
+            <div className="flex items-center gap-3">
+              <div
+                  className="
+								flex h-11 w-11 items-center
+								justify-center rounded-xl
+								bg-gradient-to-br from-blue-500
+								to-indigo-600 text-lg font-bold
+								text-white shadow-sm
+							"
+              >
+                ◇
+              </div>
 
-            <p className="mt-2 text-slate-600">
-              Analysez votre CV et trouvez les offres
-              les plus compatibles.
-            </p>
-          </header>
+              <div>
+                <h1 className="text-xl font-bold tracking-tight">
+                  ATS CV Scorer
+                </h1>
 
+                <p className="hidden text-xs text-slate-500 sm:block">
+                  Trouvez les offres adaptées à votre profil
+                </p>
+              </div>
+            </div>
+
+            {result?.candidate_name && (
+                <div className="flex items-center gap-3">
+                  <div
+                      className="
+									flex h-10 w-10 items-center justify-center
+									rounded-full bg-blue-600 text-sm
+									font-bold text-white
+								"
+                  >
+                    {initial}
+                  </div>
+
+                  <div className="hidden sm:block">
+                    <p className="text-sm font-semibold">
+                      {result.candidate_name}
+                    </p>
+
+                    <p className="text-xs text-slate-500">
+                      Profil candidat
+                    </p>
+                  </div>
+                </div>
+            )}
+          </div>
+        </header>
+
+        <main
+            className="
+					mx-auto max-w-[1600px] px-4 py-6
+					sm:px-6 lg:px-8
+				"
+        >
           <SearchForm
               onSubmit={handleSearch}
               isLoading={isLoading}
@@ -70,12 +159,9 @@ function App() {
           {error && (
               <div
                   className="
-              mt-6 rounded-xl
-              border border-red-200
-              bg-red-50
-              px-4 py-3
-              text-sm text-red-700
-            "
+							mt-5 rounded-xl border border-red-200
+							bg-red-50 p-4 text-sm text-red-700
+						"
               >
                 <strong>
                   Impossible d'analyser les offres.
@@ -88,115 +174,78 @@ function App() {
           )}
 
           {isLoading && (
-              <div className="mt-10 text-center">
+              <div
+                  className="
+							mt-8 flex flex-col items-center
+							justify-center rounded-2xl border
+							border-slate-200 bg-white px-6 py-20
+							text-center shadow-sm
+						"
+              >
                 <div
                     className="
-                mx-auto size-8
-                animate-spin rounded-full
-                border-4 border-slate-200
-                border-t-blue-600
-              "
+								h-10 w-10 animate-spin rounded-full
+								border-4 border-blue-100
+								border-t-blue-600
+							"
                 />
 
-                <p className="mt-4 text-sm text-slate-600">
-                  Recherche et analyse des offres en cours...
+                <h2 className="mt-5 text-lg font-bold">
+                  Analyse des offres en cours
+                </h2>
+
+                <p className="mt-2 max-w-md text-sm text-slate-500">
+                  Nous recherchons les offres,
+                  analysons leurs exigences et les
+                  comparons avec votre CV.
                 </p>
               </div>
           )}
 
-          {result && !isLoading && (
-              <section className="mt-8">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-xl font-semibold text-slate-900">
-                      Résultats
+          {result
+              && !isLoading
+              && result.jobs.length === 0 && (
+                  <div
+                      className="
+								mt-8 rounded-2xl border border-slate-200
+								bg-white p-12 text-center shadow-sm
+							"
+                  >
+                    <h2 className="text-lg font-bold">
+                      Aucune offre trouvée
                     </h2>
 
-                    {result.candidate_name && (
-                        <p className="mt-1 text-sm text-slate-500">
-                          Candidat : {result.candidate_name}
-                        </p>
-                    )}
+                    <p className="mt-2 text-sm text-slate-500">
+                      Essayez d'autres mots-clés ou
+                      une autre localisation.
+                    </p>
                   </div>
+              )}
 
-                  <p className="text-sm text-slate-500">
-                    {result.jobs.length}{' '}
-                    {result.jobs.length > 1
-                        ? 'offres analysées'
-                        : 'offre analysée'}
-                  </p>
-                </div>
+          {result
+              && !isLoading
+              && selectedJob && (
+                  <div
+                      className="
+								mt-6 grid gap-6
+								xl:grid-cols-[minmax(380px,0.82fr)_minmax(600px,1.35fr)]
+							"
+                  >
+                    <JobList
+                        jobs={result.jobs}
+                        selectedIndex={selectedIndex}
+                        onSelect={setSelectedIndex}
+                    />
 
-                <div className="mt-6 space-y-4">
-                  {result.jobs.map(
-                      (rankedJob, index) => (
-                          <article
-                              key={
-                                  rankedJob.job.id
-                                  ?? `${rankedJob.job.title}-${index}`
-                              }
-                              className="
-                      rounded-2xl
-                      border border-slate-200
-                      bg-white p-6
-                      shadow-sm
-                    "
-                          >
-                            <div className="flex items-start justify-between gap-6">
-                              <div>
-                                <h3 className="text-lg font-semibold text-slate-900">
-                                  {rankedJob.job.title}
-                                </h3>
-
-                                {rankedJob.job.company && (
-                                    <p className="mt-1 font-medium text-blue-600">
-                                      {rankedJob.job.company}
-                                    </p>
-                                )}
-
-                                <div className="mt-3 flex flex-wrap gap-3 text-sm text-slate-500">
-                                  {rankedJob.job.location && (
-                                      <span>
-                              {rankedJob.job.location}
-                            </span>
-                                  )}
-
-                                  {rankedJob.job.contract_type && (
-                                      <span>
-                              {rankedJob.job.contract_type}
-                            </span>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div
-                                  className="
-                          flex size-20 shrink-0
-                          items-center justify-center
-                          rounded-full
-                          border-4 border-emerald-500
-                        "
-                              >
-                        <span className="text-xl font-bold text-slate-900">
-                          {Math.round(
-                              rankedJob.match.score,
-                          )}
-                          %
-                        </span>
-                              </div>
-                            </div>
-
-                            <p className="mt-5 text-sm text-slate-600">
-                              {rankedJob.explanation.summary}
-                            </p>
-                          </article>
-                      ),
-                  )}
-                </div>
-              </section>
-          )}
-        </div>
-      </main>
+                    <div className="xl:sticky xl:top-6 xl:self-start">
+                      <JobDetails
+                          rankedJob={selectedJob}
+                      />
+                    </div>
+                  </div>
+              )}
+        </main>
+      </div>
   )
 }
 

@@ -53,6 +53,19 @@ class FakeSemanticService:
 
         return 0.90
 
+    def similarities(
+        self,
+        query,
+        documents,
+    ):
+        return [
+            self.similarity(
+                query=query,
+                document=document,
+            )
+            for document in documents
+        ]
+
 
 class FakeRelevanceEvaluator:
     def evaluate(
@@ -71,6 +84,19 @@ class FakeRelevanceEvaluator:
             relevance=0.10,
             reason="Frontend role.",
         )
+
+    def evaluate_many(
+        self,
+        query,
+        jobs,
+    ):
+        return [
+            self.evaluate(
+                query=query,
+                job=job,
+            )
+            for job in jobs
+        ]
 
 
 class FakeRequirementsExtractor:
@@ -292,25 +318,26 @@ def test_job_search_pipeline_uses_llm_relevance():
 
     # Vérification du mapping
     # JobRequirements -> JobOffer.
+    # Vérification de l'extraction locale V1.
     assert (
-        result.jobs[0]
-        .job
-        .experience_required
-        == "2 à 4 ans"
+            result.jobs[0]
+            .job
+            .skills
+            == ["fallback-skill"]
     )
 
     assert (
-        result.jobs[0]
-        .job
-        .education_required
-        == "Bac+5"
+            result.jobs[0]
+            .job
+            .experience_required
+            is None
     )
 
     assert (
-        result.jobs[0]
-        .job
-        .skills
-        == ["Python"]
+            result.jobs[0]
+            .job
+            .education_required
+            is None
     )
 
 

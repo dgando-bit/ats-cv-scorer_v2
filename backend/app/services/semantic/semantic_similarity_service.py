@@ -17,20 +17,54 @@ class SemanticSimilarityService:
         if not query.strip() or not document.strip():
             return 0.0
 
-        embeddings = self.model.encode(
-            [
-                f"query: {query}",
-                f"passage: {document}",
+        return self.similarities(
+            query=query,
+            documents=[document],
+        )[0]
+
+    def similarities(
+        self,
+        query: str,
+        documents: list[str],
+    ) -> list[float]:
+        if not documents:
+            return []
+
+        if not query.strip():
+            return [
+                0.0
+                for _ in documents
+            ]
+
+        prepared = [
+            f"query: {query}",
+            *[
+                (
+                    f"passage: {document}"
+                    if document.strip()
+                    else "passage:"
+                )
+                for document in documents
             ],
+        ]
+
+        embeddings = self.model.encode(
+            prepared,
             normalize_embeddings=True,
         )
 
         query_embedding = embeddings[0]
-        document_embedding = embeddings[1]
+        document_embeddings = embeddings[1:]
 
-        score = float(
-            query_embedding
-            @ document_embedding
+        scores = (
+            document_embeddings
+            @ query_embedding
         )
 
-        return round(score, 4)
+        return [
+            round(
+                float(score),
+                4,
+            )
+            for score in scores
+        ]
