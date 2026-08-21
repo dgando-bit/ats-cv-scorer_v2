@@ -13,7 +13,14 @@ from app.services.matching.job_search_pipeline import (
 from app.services.semantic.semantic_similarity_service import (
     SemanticSimilarityService,
 )
+from app.services.cv.cv_extractor import (
+    CVExtractor,
+)
 
+
+@lru_cache
+def get_cv_extractor() -> CVExtractor:
+    return CVExtractor()
 
 @lru_cache
 def get_job_provider() -> JobProvider:

@@ -1,10 +1,23 @@
 import os
 import tempfile
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    UploadFile,
+)
 
+from app.api.dependencies import (
+    get_cv_extractor,
+)
 from app.models.cv import CV
-from app.services.cv.cv_extractor import CVExtractor
+from app.services.cv.cv_extractor import (
+    CVExtractor,
+)
+from app.utils.file_validation import (
+    read_valid_pdf,
+)
 
 
 router = APIRouter(
@@ -13,46 +26,46 @@ router = APIRouter(
 )
 
 
-cv_extractor = CVExtractor()
-
-
 @router.post(
     "/extract",
     response_model=CV,
 )
 async def extract_cv(
     file: UploadFile = File(...),
+    extractor: CVExtractor = Depends(
+        get_cv_extractor
+    ),
 ) -> CV:
-
-    if file.content_type != "application/pdf":
-        raise HTTPException(
-            status_code=400,
-            detail="Only PDF files are supported.",
-        )
-
-    suffix = ".pdf"
-
     temp_path: str | None = None
 
     try:
+        content = await read_valid_pdf(
+            file
+        )
+
         with tempfile.NamedTemporaryFile(
             delete=False,
-            suffix=suffix,
+            suffix=".pdf",
         ) as temp_file:
+            temp_file.write(
+                content
+            )
 
-            content = await file.read()
+            temp_path = (
+                temp_file.name
+            )
 
-            temp_file.write(content)
-
-            temp_path = temp_file.name
-
-        return cv_extractor.extract(
+        return extractor.extract(
             temp_path
         )
 
     finally:
         if (
             temp_path
-            and os.path.exists(temp_path)
+            and os.path.exists(
+                temp_path
+            )
         ):
-            os.remove(temp_path)
+            os.remove(
+                temp_path
+            )
