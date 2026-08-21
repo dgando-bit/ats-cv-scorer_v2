@@ -9,6 +9,12 @@ Le projet combine extraction de données, NLP, recherche sémantique, Large Lang
 **Repository :** [github.com/dgando-bit/ats-cv-scorer_v2](https://github.com/dgando-bit/ats-cv-scorer_v2)
 
 ---
+## Aperçu de l'application
+
+![Dashboard ATS CV Scorer](docs/screenshots/dashboard.png)
+![Dashboard ATS CV Scorer](docs/screenshots/history.png)
+![Dashboard ATS CV Scorer](docs/screenshots/cv_profil.png)
+---
 
 ## Sommaire
 
