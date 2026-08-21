@@ -12,8 +12,7 @@ Le projet combine extraction de données, NLP, recherche sémantique, Large Lang
 ## Aperçu de l'application
 
 ![Dashboard ATS CV Scorer](docs/screenshots/dashboard.png)
-![Dashboard ATS CV Scorer](docs/screenshots/history.png)
-![Dashboard ATS CV Scorer](docs/screenshots/cv_profil.png)
+
 ---
 
 ## Sommaire
@@ -58,6 +57,20 @@ L'application analyse notamment :
 Chaque offre reçoit ensuite un **score de compatibilité avec le CV**, accompagné d'une analyse détaillée.
 
 ---
+
+# Captures d'écran
+
+## CV & Profil
+
+![CV et Profil](docs/screenshots/cv-profile.png)
+
+## Historique des analyses
+
+![Historique des analyses](docs/screenshots/history.png)
+
+## Version mobile
+
+![Version mobile](docs/screenshots/mobile.png)
 
 # Fonctionnalités
 
