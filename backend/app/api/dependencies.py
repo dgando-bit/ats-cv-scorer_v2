@@ -53,9 +53,20 @@ def get_relevance_evaluator() -> GroqJobRelevanceEvaluator:
     return GroqJobRelevanceEvaluator()
 
 
+@lru_cache
 def get_job_search_pipeline() -> JobSearchPipeline:
+    """
+    Singleton du pipeline.
+
+    Important : on réutilise get_job_provider() (et non un
+    FranceTravailProvider() flambant neuf) afin de conserver
+    entre les requêtes le token OAuth ainsi que le pool de
+    connexions HTTP (keep-alive). Cela permet aussi au cache
+    mémoire des requirements (self._requirements_cache) du
+    pipeline de réellement persister entre deux recherches.
+    """
     return JobSearchPipeline(
-        provider=FranceTravailProvider(),
+        provider=get_job_provider(),
         relevance_evaluator=(
             get_relevance_evaluator()
         ),

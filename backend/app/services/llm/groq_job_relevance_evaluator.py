@@ -35,7 +35,14 @@ class GroqJobRelevanceEvaluator(
         model: str | None = None,
     ) -> None:
         self.client = client or Groq(
-            api_key=settings.groq_api_key
+            api_key=settings.groq_api_key,
+            timeout=20.0,
+            # Le pipeline gère déjà son propre fallback
+            # (retour à l'ordre sémantique) en cas d'échec
+            # Groq. Les retries internes du SDK ajouteraient
+            # une latence cachée, invisible dans nos logs
+            # [rerank], avant même de déclencher ce fallback.
+            max_retries=0,
         )
 
         self.model = (

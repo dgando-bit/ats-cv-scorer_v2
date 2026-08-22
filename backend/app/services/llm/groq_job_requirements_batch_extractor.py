@@ -53,13 +53,38 @@ def make_schema_strict(
     return schema
 
 class GroqJobRequirementsBatchExtractor:
+    # Même logique que GroqJobRelevanceEvaluator : on tronque
+    # les descriptions pour limiter le nombre de tokens d'entrée
+    # (coût, risque de rate limit) mais aussi, ici, pour laisser
+    # assez de marge de tokens de sortie au modèle afin qu'il
+    # puisse terminer le JSON structuré pour TOUTES les offres
+    # du batch sans être coupé en cours de génération (c'est ce
+    # qui provoquait les erreurs "Failed to validate JSON" /
+    # failed_generation vide observées en pratique).
+    MAX_DESCRIPTION_CHARS = 900
+
+    # Sortie structurée pour plusieurs offres à la fois : prévoir
+    # une marge confortable par offre plutôt que de dépendre du
+    # maximum par défaut du modèle.
+    MAX_COMPLETION_TOKENS_PER_JOB = 600
+    MIN_COMPLETION_TOKENS = 2000
+
     def __init__(
         self,
         client: Groq | None = None,
         model: str | None = None,
     ) -> None:
         self.client = client or Groq(
-            api_key=settings.groq_api_key
+            api_key=settings.groq_api_key,
+            timeout=30.0,
+            # Le pipeline retombe déjà sur le fallback
+            # lexical (_apply_lexical_fallback) en cas
+            # d'échec Groq. On ne veut pas que le SDK
+            # retente en interne avant ça : ça ajoute une
+            # latence invisible dans nos logs
+            # [requirements-batch] sans bénéfice, puisque
+            # le fallback applicatif est déjà rapide et fiable.
+            max_retries=0,
         )
 
         self.model = (
@@ -80,9 +105,9 @@ class GroqJobRequirementsBatchExtractor:
                 "index": index,
                 "title": job.title,
                 "description": (
-                    job.description
-                    or "Not specified"
-                ),
+                    job.description or ""
+                )[: self.MAX_DESCRIPTION_CHARS]
+                or "Not specified",
             }
             for index, job in enumerate(
                 jobs
@@ -99,9 +124,18 @@ class GroqJobRequirementsBatchExtractor:
             .model_json_schema()
         )
 
+        max_completion_tokens = max(
+            self.MIN_COMPLETION_TOKENS,
+            len(jobs)
+            * self.MAX_COMPLETION_TOKENS_PER_JOB,
+        )
+
         response = (
             self.client.chat.completions.create(
                 model=self.model,
+                max_completion_tokens=(
+                    max_completion_tokens
+                ),
                 messages=[
                     {
                         "role": "system",

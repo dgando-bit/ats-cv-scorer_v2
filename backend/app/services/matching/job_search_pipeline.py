@@ -1,3 +1,4 @@
+import time
 from dataclasses import dataclass
 from threading import Lock
 
@@ -144,6 +145,8 @@ class JobSearchPipeline:
         # 2. Recherche France Travail
         # ---------------------------------------------------------
 
+        step_start = time.perf_counter()
+
         raw_jobs = (
             self.provider.search_jobs(
                 keywords=keywords,
@@ -151,6 +154,13 @@ class JobSearchPipeline:
                 insee_code=insee_code,
                 limit=provider_limit,
             )
+        )
+
+        print(
+            "[timing] france_travail_search: "
+            f"{time.perf_counter() - step_start:.2f}s "
+            f"({len(raw_jobs)} offres)",
+            flush=True,
         )
 
         if not raw_jobs:
@@ -165,12 +175,20 @@ class JobSearchPipeline:
         # 3. Retrieval sémantique
         # ---------------------------------------------------------
 
+        step_start = time.perf_counter()
+
         semantic_candidates = (
             self._semantic_retrieval(
                 keywords=keywords,
                 jobs=raw_jobs,
                 top_k=retrieval_top_k,
             )
+        )
+
+        print(
+            "[timing] semantic_retrieval: "
+            f"{time.perf_counter() - step_start:.2f}s",
+            flush=True,
         )
 
         # ---------------------------------------------------------
@@ -180,6 +198,8 @@ class JobSearchPipeline:
         # on conserve simplement l'ordre sémantique.
         # ---------------------------------------------------------
 
+        step_start = time.perf_counter()
+
         llm_ranked = (
             self._llm_rerank(
                 keywords=keywords,
@@ -187,6 +207,12 @@ class JobSearchPipeline:
                     semantic_candidates
                 ),
             )
+        )
+
+        print(
+            "[timing] llm_rerank: "
+            f"{time.perf_counter() - step_start:.2f}s",
+            flush=True,
         )
 
         selected = (
@@ -202,15 +228,25 @@ class JobSearchPipeline:
         # fallback lexical local.
         # ---------------------------------------------------------
 
+        step_start = time.perf_counter()
+
         enriched_candidates = (
             self._extract_selected_jobs(
                 selected
             )
         )
 
+        print(
+            "[timing] requirements_extraction: "
+            f"{time.perf_counter() - step_start:.2f}s",
+            flush=True,
+        )
+
         # ---------------------------------------------------------
         # 6. Matching CV / offres
         # ---------------------------------------------------------
+
+        step_start = time.perf_counter()
 
         ranked_jobs: list[
             RankedJob
@@ -251,6 +287,12 @@ class JobSearchPipeline:
                     ),
                 )
             )
+
+        print(
+            "[timing] matching_and_explanations: "
+            f"{time.perf_counter() - step_start:.2f}s",
+            flush=True,
+        )
 
         return JobRankingResult(
             candidate_name=(

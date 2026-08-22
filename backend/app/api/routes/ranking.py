@@ -9,6 +9,7 @@ from fastapi import (
     HTTPException,
     UploadFile,
 )
+from starlette.concurrency import run_in_threadpool
 
 from app.api.dependencies import (
     get_job_search_pipeline,
@@ -71,12 +72,23 @@ async def rank_jobs(
                 temp_file.name
             )
 
-        cv = cv_extractor.extract(
-            temp_path
+        # cv_extractor.extract() et pipeline.search_and_rank()
+        # sont entièrement synchrones/bloquants (parsing PDF,
+        # appels HTTP France Travail/Groq, encodage sentence-
+        # transformers). Les exécuter directement dans une route
+        # "async def" gèlerait l'event loop unique du process
+        # pendant toute la durée du pipeline, bloquant du même
+        # coup toutes les autres requêtes (autocomplétion,
+        # /health, autres utilisateurs). On les déporte donc
+        # dans le threadpool de Starlette.
+        cv = await run_in_threadpool(
+            cv_extractor.extract,
+            temp_path,
         )
 
         try:
-            return pipeline.search_and_rank(
+            return await run_in_threadpool(
+                pipeline.search_and_rank,
                 cv=cv,
                 keywords=keywords,
                 location=location,

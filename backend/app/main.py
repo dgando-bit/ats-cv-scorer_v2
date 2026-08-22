@@ -11,6 +11,13 @@ from app.api.routes.ranking import (
 from app.api.routes.locations import (
     router as locations_router,
 )
+from app.api.dependencies import (
+    get_semantic_service,
+    get_relevance_evaluator,
+    get_requirements_batch_extractor,
+    get_job_provider,
+    get_job_search_pipeline,
+)
 
 app = FastAPI(
     title="ATS CV Scorer",
@@ -35,6 +42,34 @@ def health():
         "status": "ok",
         "service": "ats-cv-scorer_v2",
     }
+
+
+@app.on_event("startup")
+def warm_up_singletons() -> None:
+    """
+    Précharge les singletons coûteux (modèle sémantique,
+    clients Groq, provider France Travail) au démarrage du
+    conteneur plutôt qu'à la première requête utilisateur.
+
+    Sans ça, la toute première requête /api/jobs/rank paie le
+    coût cumulé du chargement du modèle sentence-transformers
+    et de la première connexion à chaque service externe.
+    """
+    print(
+        "[startup] Préchauffage des services...",
+        flush=True,
+    )
+
+    get_semantic_service()
+    get_relevance_evaluator()
+    get_requirements_batch_extractor()
+    get_job_provider()
+    get_job_search_pipeline()
+
+    print(
+        "[startup] Préchauffage terminé.",
+        flush=True,
+    )
 
 app.include_router(match_router)
 app.include_router(job_router)
