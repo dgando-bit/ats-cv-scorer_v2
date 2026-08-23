@@ -86,6 +86,31 @@ gcloud auth configure-docker $REGION-docker.pkg.dev
 
 Ton `backend/Dockerfile` actuel fonctionne quasiment tel quel. Une seule chose à savoir : Cloud Run doit connaître le port sur lequel écoute ton conteneur. Ton `uvicorn` écoute en dur sur `8000` (pas de lecture de la variable `$PORT`) — c'est très bien, il suffit de le dire explicitement à Cloud Run au déploiement avec `--port 8000` (étape 6), pas besoin de toucher au Dockerfile.
 
+**⚠️ Piège vécu — l'image fait 5-7 Go à cause de torch CUDA** : par défaut, `torch` (dépendance de `sentence-transformers`) s'installe en version GPU/CUDA, qui pèse plusieurs Go alors que Cloud Run n'a pas de GPU et n'en a aucun besoin. Fixe la version CPU-only dans `backend/pyproject.toml` :
+
+```toml
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+```
+
+Puis régénère le lockfile (obligatoire, sinon `--frozen` dans le Dockerfile refuse de builder) :
+
+```bash
+cd backend
+uv lock
+```
+
+Résultat attendu : image backend qui passe d'environ 5-7 Go à ~1-1.5 Go. Vérifie avant de pousser :
+
+```bash
+docker images $REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/backend:v1
+```
+
 **Important — CORS** : dans `app/main.py`, l'origine autorisée est actuellement figée sur `http://localhost:5173`. Une fois le frontend déployé, il faudra ajouter son URL Cloud Run (ou ton domaine final) :
 
 ```python
@@ -144,6 +169,15 @@ server {
 
 Point d'attention : `VITE_API_URL` est injecté **au moment du build**, pas au démarrage du conteneur. Il faut donc connaître l'URL du backend Cloud Run *avant* de builder l'image frontend — d'où l'ordre des étapes ci-dessous (backend déployé en premier).
 
+**⚠️ Piège vécu — le build de prod peut révéler des erreurs TypeScript invisibles en dev.** `pnpm dev` ne fait pas de vérification de types stricte, alors que `pnpm build` (utilisé dans `Dockerfile.prod`) lance `tsc -b` avant `vite build`. Si ton code a un type frontend désynchronisé de ce que renvoie réellement le backend (ex. un champ présent dans la réponse JSON mais absent du type TypeScript), le build échoue seulement à ce moment-là. Teste toujours en local avant de lancer un build Docker complet :
+
+```bash
+cd frontend
+pnpm build
+```
+
+Si ça passe sans erreur en local, le build Docker passera aussi — inutile d'attendre un build Docker entier pour découvrir une erreur `tsc`.
+
 ---
 
 ## Étape 5 — Secrets dans Secret Manager
@@ -154,6 +188,22 @@ Ne jamais mettre `GROQ_API_KEY` / `FRANCE_TRAVAIL_CLIENT_SECRET` en variable d'e
 echo -n "ta_vraie_cle_groq" | gcloud secrets create groq-api-key --data-file=-
 echo -n "ton_client_id_ft" | gcloud secrets create ft-client-id --data-file=-
 echo -n "ton_client_secret_ft" | gcloud secrets create ft-client-secret --data-file=-
+echo -n "ton_hf_token" | gcloud secrets create hf-token --data-file=-
+```
+
+Le `HF_TOKEN` n'est pas strictement obligatoire (le téléchargement du modèle sentence-transformers fonctionne sans), mais sans lui Hugging Face applique des rate limits plus stricts sur les téléchargements anonymes — utile à avoir dès qu'on redéploie souvent, vu que le modèle n'est pas mis en cache dans l'image (voir note à l'étape 6).
+
+**Étape supplémentaire indispensable, découverte à l'usage** : créer un secret ne suffit pas — il faut aussi explicitement autoriser le service account qui exécute le conteneur Cloud Run à le lire. Sans ça, `gcloud run deploy` échoue avec `Permission denied on secret`. C'est le principe du moindre privilège : deux systèmes IAM distincts (créer un secret ≠ avoir le droit de le lire).
+
+```bash
+export PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')
+export RUNTIME_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+
+for SECRET in groq-api-key ft-client-id ft-client-secret hf-token; do
+  gcloud secrets add-iam-policy-binding $SECRET \
+    --member="serviceAccount:$RUNTIME_SA" \
+    --role="roles/secretmanager.secretAccessor"
+done
 ```
 
 ---
@@ -162,10 +212,12 @@ echo -n "ton_client_secret_ft" | gcloud secrets create ft-client-secret --data-f
 
 Toujours faire un premier déploiement à la main avant de brancher le CI/CD — ça isole les problèmes de conf des problèmes de pipeline.
 
+**⚠️ Piège vécu — sur Mac Apple Silicon (M1/M2/M3), il faut forcer l'architecture.** Par défaut, `docker build` construit pour l'architecture de ta machine (arm64). Cloud Run n'exécute que du `linux/amd64` — sans `--platform`, le déploiement échoue avec `exec format error` et le conteneur ne démarre jamais. Ajoute `--platform linux/amd64` à **tous** tes builds locaux destinés à Cloud Run (backend et frontend). Ce n'est pas nécessaire dans le workflow GitHub Actions (étape 8) : les runners `ubuntu-latest` sont déjà en amd64.
+
 ```bash
 # Build + push de l'image backend
 cd backend
-docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/backend:v1 .
+docker build --platform linux/amd64 -t $REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/backend:v1 .
 docker push $REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/backend:v1
 
 # Déploiement backend
@@ -175,14 +227,14 @@ gcloud run deploy ats-backend \
   --platform=managed \
   --port=8000 \
   --allow-unauthenticated \
-  --set-secrets="GROQ_API_KEY=groq-api-key:latest,FRANCE_TRAVAIL_CLIENT_ID=ft-client-id:latest,FRANCE_TRAVAIL_CLIENT_SECRET=ft-client-secret:latest" \
-  --memory=1Gi \
+  --set-secrets="GROQ_API_KEY=groq-api-key:latest,FRANCE_TRAVAIL_CLIENT_ID=ft-client-id:latest,FRANCE_TRAVAIL_CLIENT_SECRET=ft-client-secret:latest,HF_TOKEN=hf-token:latest" \
+  --memory=2Gi \
   --cpu=1 \
   --min-instances=0 \
   --max-instances=3
 ```
 
-⚠️ `--memory=1Gi` minimum recommandé à cause du modèle sentence-transformers chargé en mémoire (`get_semantic_service`). Ajuste si tu vois des OOM dans les logs.
+⚠️ `--memory=2Gi` **minimum recommandé**, pas 1Gi — vécu en pratique : avec 1Gi, le conteneur crashe au démarrage (`Memory limit of 1024 MiB exceeded with 1098 MiB used`) à cause du modèle sentence-transformers chargé en mémoire pendant le préchauffage (`get_semantic_service`). Ajuste encore si tu vois des OOM dans les logs à plus forte charge.
 
 Récupère l'URL générée (affichée en sortie, ou) :
 
@@ -190,11 +242,11 @@ Récupère l'URL générée (affichée en sortie, ou) :
 gcloud run services describe ats-backend --region=$REGION --format='value(status.url)'
 ```
 
-Puis backend URL en main, build le frontend :
+Puis backend URL en main, build le frontend (`--platform linux/amd64` là aussi) :
 
 ```bash
 cd ../frontend
-docker build -f Dockerfile.prod \
+docker build --platform linux/amd64 -f Dockerfile.prod \
   --build-arg VITE_API_URL=https://TON-BACKEND-URL.run.app \
   -t $REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/frontend:v1 .
 docker push $REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/frontend:v1
@@ -210,7 +262,7 @@ gcloud run deploy ats-frontend \
   --max-instances=3
 ```
 
-Va maintenant mettre à jour le CORS dans `main.py` (étape 3) avec l'URL frontend obtenue, puis redéploie le backend (`gcloud run deploy ats-backend ... :v1` à nouveau après rebuild).
+Va maintenant mettre à jour le CORS dans `main.py` (étape 3) avec l'URL frontend obtenue, puis redéploie le backend (rebuild `--platform linux/amd64` + push + `gcloud run deploy ats-backend ...` à nouveau).
 
 Teste que tout marche via l'URL frontend avant de passer au CI/CD.
 
@@ -328,8 +380,8 @@ jobs:
             --region=${{ env.REGION }} \
             --port=8000 \
             --allow-unauthenticated \
-            --set-secrets="GROQ_API_KEY=groq-api-key:latest,FRANCE_TRAVAIL_CLIENT_ID=ft-client-id:latest,FRANCE_TRAVAIL_CLIENT_SECRET=ft-client-secret:latest" \
-            --memory=1Gi
+            --set-secrets="GROQ_API_KEY=groq-api-key:latest,FRANCE_TRAVAIL_CLIENT_ID=ft-client-id:latest,FRANCE_TRAVAIL_CLIENT_SECRET=ft-client-secret:latest,HF_TOKEN=hf-token:latest" \
+            --memory=2Gi
 
   deploy-frontend:
     needs: deploy-backend
@@ -384,7 +436,30 @@ Remplace `ton-project-id` et `PROJECT_NUMBER` par tes vraies valeurs (celle réc
 - **Domaine personnalisé** (optionnel) : `gcloud run domain-mappings create` si tu veux `api.tondomaine.com` plutôt qu'une URL `*.run.app`.
 - **Environnements séparés** : pour une v1, un seul environnement (prod) suffit. Si tu veux du staging plus tard, duplique simplement les services Cloud Run (`ats-backend-staging`) et déclenche sur une branche `develop`.
 - **Coûts** : avec `--min-instances=0`, tu ne payes rien quand personne n'utilise l'app (juste le stockage Artifact Registry, négligeable). Attention au cold-start du modèle sémantique au premier appel après une période d'inactivité — c'est exactement le problème du préchauffage qu'on a réglé en local, il se reproduira ici après une mise en veille Cloud Run. Si ça devient gênant, `--min-instances=1` élimine le cold-start mais fait tourner le conteneur en continu (coût non-nul).
-- **Suivi** : `gcloud run services logs read ats-backend --region=$REGION` ou directement dans la console GCP (Cloud Run → ton service → Logs) — tu y retrouveras tes logs `[timing]`/`[rerank]`/`[requirements-batch]` tels quels.
+- **Suivi** : dans la console GCP → Cloud Run → clique sur ton service → onglet **Logs** — tu y retrouveras tes logs `[timing]`/`[rerank]`/`[requirements-batch]` tels quels. Onglet **Metrics** pour la charge CPU/mémoire dans le temps, **Revisions** pour l'historique des déploiements et un rollback en un clic si besoin.
+
+  ```bash
+  # accès direct
+  open "https://console.cloud.google.com/run?project=$PROJECT_ID"
+  ```
+
+  Si un lien direct vers un service précis affiche "URL introuvable", c'est généralement un souci de compte Google (`&authuser=`) si plusieurs comptes sont connectés dans le navigateur — repasse par le menu **Services** dans la console plutôt que par le lien.
+
+---
+
+## Annexe — Problèmes rencontrés en pratique et leur fix
+
+Pour référence rapide si tu retombes dessus (ou si quelqu'un d'autre reprend ce déploiement) :
+
+| Symptôme | Cause | Fix |
+|---|---|---|
+| Image backend de 5-7 Go, `docker push` très long | `torch` installé en version CUDA/GPU par défaut | `[tool.uv.sources]` + `[[tool.uv.index]]` vers `download.pytorch.org/whl/cpu` dans `pyproject.toml`, puis `uv lock` |
+| `Permission denied on secret` au déploiement | Le service account d'exécution Cloud Run n'a pas le droit de lire les secrets créés | `gcloud secrets add-iam-policy-binding <secret> --member="serviceAccount:$RUNTIME_SA" --role="roles/secretmanager.secretAccessor"` |
+| `failed to load /usr/bin/uv: exec format error` | Image buildée en arm64 (Mac Apple Silicon) alors que Cloud Run attend amd64 | `docker build --platform linux/amd64 ...` sur tous les builds locaux |
+| `Memory limit of 1024 MiB exceeded` | Modèle sentence-transformers trop lourd pour 1Gi de RAM | `--memory=2Gi` sur le déploiement backend |
+| `Warning: unauthenticated requests to the HF Hub` | Pas de token Hugging Face, rate limit anonyme plus strict | Secret `HF_TOKEN` ajouté via `--set-secrets` |
+| `error TS2339: Property 'x' does not exist on type` au build frontend | Type TypeScript désynchronisé de la vraie réponse JSON backend ; invisible avec `pnpm dev` qui ne type-check pas | Corriger le type, puis toujours tester `pnpm build` en local avant un build Docker |
+| Lien direct vers la console GCP → "URL introuvable" | Plusieurs comptes Google connectés dans le navigateur (`&authuser=`) | Repasser par le menu **Services** dans la console plutôt que par le lien direct |
 
 ---
 
