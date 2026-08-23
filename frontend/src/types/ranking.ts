@@ -42,6 +42,9 @@ export interface JobOffer {
 
   experience_required?: string | null
   education_required?: string | null
+
+  source?: string | null
+  source_url?: string | null
 }
 
 export interface RankedJob {
