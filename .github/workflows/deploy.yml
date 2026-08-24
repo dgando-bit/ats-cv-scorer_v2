@@ -1,0 +1,92 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches: [main]
+
+env:
+  PROJECT_ID: ats-cv-scorer
+  REGION: europe-west1
+  REPO_NAME: ats-cv-scorer
+
+permissions:
+  contents: read
+  id-token: write   # requis pour l'auth OIDC sans clé
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/821673292315/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-deployer@ats-cv-scorer.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+      - name: Build and push backend
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          IMAGE=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/backend:${{ github.sha }}
+          docker build --secret id=hf_token,env=HF_TOKEN -t $IMAGE ./backend
+          docker push $IMAGE
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+
+      - name: Deploy backend to Cloud Run
+        run: |
+          gcloud run deploy ats-backend \
+            --image=${{ env.IMAGE }} \
+            --region=${{ env.REGION }} \
+            --port=8000 \
+            --allow-unauthenticated \
+            --set-secrets="GROQ_API_KEY=groq-api-key:latest,FRANCE_TRAVAIL_CLIENT_ID=ft-client-id:latest,FRANCE_TRAVAIL_CLIENT_SECRET=ft-client-secret:latest,HF_TOKEN=hf-token:latest" \
+            --memory=2Gi \
+            --cpu=2 \
+            --cpu-boost
+
+  deploy-frontend:
+    needs: deploy-backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/821673292315/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-deployer@ats-cv-scorer.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Get backend URL
+        run: |
+          URL=$(gcloud run services describe ats-backend --region=${{ env.REGION }} --format='value(status.url)')
+          echo "BACKEND_URL=$URL" >> $GITHUB_ENV
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+      - name: Build and push frontend
+        run: |
+          IMAGE=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/frontend:${{ github.sha }}
+          docker build -f ./frontend/Dockerfile.prod \
+            --build-arg VITE_API_URL=${{ env.BACKEND_URL }} \
+            -t $IMAGE ./frontend
+          docker push $IMAGE
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+
+      - name: Deploy frontend to Cloud Run
+        run: |
+          gcloud run deploy ats-frontend \
+            --image=${{ env.IMAGE }} \
+            --region=${{ env.REGION }} \
+            --port=8080 \
+            --allow-unauthenticated \
+            --memory=256Mi
