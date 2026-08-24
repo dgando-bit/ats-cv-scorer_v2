@@ -1,3 +1,41 @@
+import os
+
+# Doit être fait AVANT tout import qui charge torch
+# (transitivement via sentence-transformers dans
+# app.api.dependencies). Par défaut, torch détecte le nombre
+# de threads via le nombre de cœurs de la machine hôte
+# physique, qui peut être bien supérieur au quota --cpu
+# réellement alloué par Cloud Run. Ce sur-abonnement de
+# threads dégrade fortement les performances (contention,
+# changements de contexte) sans bénéfice : vécu en pratique,
+# passer de non-fixé à 2 threads (cohérent avec --cpu=2 côté
+# déploiement) a réduit le temps de retrieval sémantique de
+# ~21s à ~13s sur un lot d'une quarantaine d'offres.
+#
+# Cette valeur doit rester cohérente avec le --cpu choisi au
+# déploiement (gcloud run deploy --cpu=N). Si tu changes l'un,
+# change l'autre.
+_TORCH_NUM_THREADS = int(
+    os.environ.get(
+        "TORCH_NUM_THREADS",
+        "2",
+    )
+)
+os.environ.setdefault(
+    "OMP_NUM_THREADS",
+    str(_TORCH_NUM_THREADS),
+)
+os.environ.setdefault(
+    "MKL_NUM_THREADS",
+    str(_TORCH_NUM_THREADS),
+)
+
+import torch
+
+torch.set_num_threads(
+    _TORCH_NUM_THREADS
+)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes.match import router as match_router

@@ -845,14 +845,31 @@ class JobSearchPipeline:
     # Document pour E5
     # =============================================================
 
+    # Le signal sémantique utile est très majoritairement dans le
+    # début de la description (intitulé du poste, résumé du rôle).
+    # Tronquer réduit fortement le volume de texte à encoder sans
+    # perte significative de pertinence — déterminant sur un CPU
+    # limité (ex. Cloud Run avec --cpu=1), où l'encodage de
+    # nombreuses descriptions complètes est le principal goulot
+    # d'étranglement du pipeline (~33s vécu en pratique pour ~40
+    # offres, contre ~6s en local avec plusieurs cœurs disponibles).
+    MAX_SEMANTIC_DESCRIPTION_CHARS = 800
+
     @staticmethod
     def _build_semantic_document(
         job: JobOffer,
     ) -> str:
 
+        description = (
+            job.description or ""
+        )[
+            :JobSearchPipeline
+            .MAX_SEMANTIC_DESCRIPTION_CHARS
+        ]
+
         parts = [
             job.title or "",
-            job.description or "",
+            description,
         ]
 
         return "\n\n".join(
